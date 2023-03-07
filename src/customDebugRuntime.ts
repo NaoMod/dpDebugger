@@ -22,8 +22,8 @@ export class CustomDebugRuntime {
 
     public isExecutionDone: boolean;
 
-    constructor(debugSession: CustomDebugSession, languageServerPort: number) {
-        this.lrProxy = new LanguageRuntimeProxy(languageServerPort);
+    constructor(debugSession: CustomDebugSession, languageRuntimePort: number) {
+        this.lrProxy = new LanguageRuntimeProxy(languageRuntimePort);
         this.debugSession = debugSession;
     }
 
