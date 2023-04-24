@@ -7,12 +7,9 @@ import * as DAPExtension from "./DAPExtension";
 
 export class CDAPBreakpointManager {
 
-    private sourceFile: string;
-    private lsProxy: LanguageRuntimeProxy;
-
     private astElementRegistry: ASTElementRegistry;
 
-    private availableBreakpointTypes: BreakpointType[];
+    readonly _availableBreakpointTypes: BreakpointType[];
     private enabledBreakpointTypes: Map<string, BreakpointType>;
     private elementsWithBreakpoints: Set<ModelElement>;
     private activatedBreakpoints: Set<ModelElement>;
@@ -20,9 +17,7 @@ export class CDAPBreakpointManager {
     private lineOffset: number;
     private columnOffset: number;
 
-    constructor(sourceFile: string, lsProxy: LanguageRuntimeProxy, astRoot: ModelElement, availableBreakpointTypes: BreakpointType[]) {
-        this.sourceFile = sourceFile;
-        this.lsProxy = lsProxy;
+    constructor(private sourceFile: string, private lrProxy: LanguageRuntimeProxy, astRoot: ModelElement, availableBreakpointTypes: BreakpointType[]) {
         this.elementsWithBreakpoints = new Set();
         this.astElementRegistry = new ASTElementRegistry(astRoot);
         this.activatedBreakpoints = new Set();
@@ -30,7 +25,7 @@ export class CDAPBreakpointManager {
         this.lineOffset = 0;
         this.columnOffset = 0;
 
-        this.availableBreakpointTypes = [];
+        this._availableBreakpointTypes = [];
 
         this.enabledBreakpointTypes = new Map();
         for (const breakpointType of availableBreakpointTypes) {
@@ -40,7 +35,7 @@ export class CDAPBreakpointManager {
 
             // first encountered breakpoint type for an element type becomes the default one
             if (!this.enabledBreakpointTypes.has(targetElementType)) this.enabledBreakpointTypes.set(targetElementType, breakpointType);
-            this.availableBreakpointTypes.push(breakpointType);
+            this._availableBreakpointTypes.push(breakpointType);
         }
     }
 
@@ -57,7 +52,7 @@ export class CDAPBreakpointManager {
             const breakpointType: BreakpointType | undefined = this.enabledBreakpointTypes.get(element.type);
             if (!breakpointType) continue;
 
-            const checkBreakpointResponse: CheckBreakpointResponse = await this.lsProxy.checkBreakpoint({
+            const checkBreakpointResponse: CheckBreakpointResponse = await this.lrProxy.checkBreakpoint({
                 sourceFile: this.sourceFile,
                 typeId: breakpointType.id,
                 elementId: element.id
@@ -123,8 +118,16 @@ export class CDAPBreakpointManager {
         this.columnOffset = -!!(!columnsStartAt1);
     }
 
-    public getBreakpointTypes(): DAPExtension.BreakpointType[] {
-        return this.availableBreakpointTypes.map(breakpointType => {
+    public enableBreakpointType(breakpointTypeId: string): void {
+        const breakpointType: BreakpointType | undefined = this._availableBreakpointTypes.find(breakpointType => breakpointType.id == breakpointTypeId);
+
+        if (!breakpointType) return;
+
+        this.enabledBreakpointTypes.set(breakpointType.parameters[0].objectType!, breakpointType);
+    }
+
+    public get availableBreakpointTypes(): DAPExtension.BreakpointType[] {
+        return this._availableBreakpointTypes.map(breakpointType => {
             return {
                 name: breakpointType.name,
                 id: breakpointType.id,
@@ -133,14 +136,6 @@ export class CDAPBreakpointManager {
                 isEnabled: this.enabledBreakpointTypes.get(breakpointType.parameters[0].objectType!) == breakpointType
             }
         });
-    }
-
-    public enableBreakpointType(breakpointTypeId: string): void {
-        const breakpointType: BreakpointType | undefined = this.availableBreakpointTypes.find(breakpointType => breakpointType.id == breakpointTypeId);
-
-        if (!breakpointType) return;
-
-        this.enabledBreakpointTypes.set(breakpointType.parameters[0].objectType!, breakpointType);
     }
 }
 

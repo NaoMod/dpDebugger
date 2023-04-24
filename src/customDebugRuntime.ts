@@ -1,5 +1,5 @@
 import { Variable } from "@vscode/debugadapter";
-import { CDAPBreakpointManager } from "./breakpoint";
+import { CDAPBreakpointManager } from "./breakpointManager";
 import { CustomDebugSession } from "./customDebugSession";
 import { GetBreakpointTypesResponse, GetRuntimeStateResponse, InitResponse, ParseResponse, StepResponse } from "./lrp";
 import { LanguageRuntimeProxy } from "./lrProxy";
@@ -11,20 +11,18 @@ import { VariableHandler } from "./variableHandler";
  */
 export class CustomDebugRuntime {
 
-    private sourceFile: string;
+    private _sourceFile: string;
     private noDebug: boolean;
 
     private lrProxy: LanguageRuntimeProxy;
-    private debugSession: CustomDebugSession;
 
-    public breakpointManager: CDAPBreakpointManager;
+    private _breakpointManager: CDAPBreakpointManager;
     private variableHandler: VariableHandler;
 
-    public isExecutionDone: boolean;
+    private _isExecutionDone: boolean;
 
-    constructor(debugSession: CustomDebugSession, languageRuntimePort: number) {
+    constructor(private debugSession: CustomDebugSession, languageRuntimePort: number) {
         this.lrProxy = new LanguageRuntimeProxy(languageRuntimePort);
-        this.debugSession = debugSession;
     }
 
     /**
@@ -35,9 +33,9 @@ export class CustomDebugRuntime {
      * @param additionalArgs Additional arguments necessary to initialize the execution.
      */
     public async initExecution(sourceFile: string, noDebug: boolean, additionalArgs?: any) {
-        if (this.sourceFile) throw new Error("Sources already loaded. This should only be called once after instanciation.");
+        if (this._sourceFile) throw new Error("Sources already loaded. This should only be called once after instanciation.");
 
-        this.sourceFile = sourceFile;
+        this._sourceFile = sourceFile;
         this.noDebug = noDebug;
 
         const parseResponse: ParseResponse = await this.lrProxy.parse({ sourceFile: sourceFile });
@@ -45,9 +43,9 @@ export class CustomDebugRuntime {
         const getBreakpointTypes: GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
         const getRuntimeStateResponse: GetRuntimeStateResponse = await this.lrProxy.getRuntimeState({ sourceFile: sourceFile });
 
-        this.breakpointManager = new CDAPBreakpointManager(sourceFile, this.lrProxy, parseResponse.astRoot, getBreakpointTypes.breakpointTypes);
+        this._breakpointManager = new CDAPBreakpointManager(sourceFile, this.lrProxy, parseResponse.astRoot, getBreakpointTypes.breakpointTypes);
         this.variableHandler = new VariableHandler(parseResponse.astRoot, getRuntimeStateResponse.runtimeStateRoot);
-        this.isExecutionDone = initResponse.isExecutionDone;
+        this._isExecutionDone = initResponse.isExecutionDone;
     }
 
 
@@ -59,11 +57,11 @@ export class CustomDebugRuntime {
      * Should only be called after {@link initExecution} has been called.
      */
     public async run() {
-        if (!this.sourceFile) throw new Error('No sources loaded.');
+        if (!this._sourceFile) throw new Error('No sources loaded.');
 
-        while (!this.isExecutionDone) {
+        while (!this._isExecutionDone) {
             if (!this.noDebug) {
-                let triggeredBreakpointDescription: string | undefined = await this.breakpointManager.checkBreakpoints();
+                let triggeredBreakpointDescription: string | undefined = await this._breakpointManager.checkBreakpoints();
                 if (triggeredBreakpointDescription) {
                     // seq and type don't matter, they're changed inside sendEvent()
                     this.debugSession.sendEvent({
@@ -83,7 +81,7 @@ export class CustomDebugRuntime {
                 }
             }
 
-            this.isExecutionDone = (await this.lrProxy.nextStep({ sourceFile: this.sourceFile })).isExecutionDone;
+            this._isExecutionDone = (await this.lrProxy.nextStep({ sourceFile: this._sourceFile })).isExecutionDone;
         }
 
         // seq and type don't matter, they're changed inside sendEvent()
@@ -98,12 +96,12 @@ export class CustomDebugRuntime {
      * Should only be called after {@link initExecution} has been called.
      */
     public async nextStep() {
-        if (!this.sourceFile) throw new Error('No sources loaded.');
-        if (this.isExecutionDone) throw new Error('Execution is already done.');
+        if (!this._sourceFile) throw new Error('No sources loaded.');
+        if (this._isExecutionDone) throw new Error('Execution is already done.');
 
-        const stepResponse: StepResponse = await this.lrProxy.nextStep({ sourceFile: this.sourceFile });
-        this.isExecutionDone = stepResponse.isExecutionDone;
-        if (!this.isExecutionDone) await this.updateRuntimeState();
+        const stepResponse: StepResponse = await this.lrProxy.nextStep({ sourceFile: this._sourceFile });
+        this._isExecutionDone = stepResponse.isExecutionDone;
+        if (!this._isExecutionDone) await this.updateRuntimeState();
     }
 
 
@@ -118,7 +116,7 @@ export class CustomDebugRuntime {
      * @returns The list of variables associated to the given reference.
      */
     public getVariables(variablesReference: number): Variable[] {
-        if (!this.sourceFile) throw new Error('No sources loaded.');
+        if (!this._sourceFile) throw new Error('No sources loaded.');
         return this.variableHandler.getVariables(variablesReference);
     }
 
@@ -128,16 +126,19 @@ export class CustomDebugRuntime {
      * Should only be called after {@link initExecution} has been called.
      */
     public async updateRuntimeState(): Promise<void> {
-        const getRuntimeStateResponse: GetRuntimeStateResponse = await this.lrProxy.getRuntimeState({ sourceFile: this.sourceFile });
+        const getRuntimeStateResponse: GetRuntimeStateResponse = await this.lrProxy.getRuntimeState({ sourceFile: this._sourceFile });
         this.variableHandler.updateRuntime(getRuntimeStateResponse.runtimeStateRoot);
     }
 
-    /**
-     * Should only be called after {@link initExecution} has been called.
-     * 
-     * @returns The source file associated to this debug runtime.
-     */
-    public getSourceFile(): string {
-        return this.sourceFile;
+    public get sourceFile(): string {
+        return this._sourceFile;
+    }
+
+    public get isExecutionDone(): boolean {
+        return this._isExecutionDone;
+    }
+
+    public get breakpointManager(): CDAPBreakpointManager {
+        return this._breakpointManager;
     }
 }

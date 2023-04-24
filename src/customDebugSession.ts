@@ -364,7 +364,7 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments, request?: DebugProtocol.Request | undefined): void {
-        const stackFrame: StackFrame = new StackFrame(0, 'Main', new Source(this.runtime.getSourceFile()));
+        const stackFrame: StackFrame = new StackFrame(0, 'Main', new Source(this.runtime.sourceFile));
         response.body = {
             stackFrames: [stackFrame]
         }
@@ -411,7 +411,7 @@ export class CustomDebugSession extends DebugSession {
         switch (command) {
             case 'getBreakpointTypes':
                 const res: GetBreakpointTypesResponse = {
-                    breakpointTypes: this.runtime.breakpointManager.getBreakpointTypes()
+                    breakpointTypes: this.runtime.breakpointManager.availableBreakpointTypes
                 };
 
                 response.body = res;
