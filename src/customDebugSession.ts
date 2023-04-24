@@ -432,7 +432,7 @@ export class CustomDebugSession extends DebugSession {
                 break;
 
             case 'enableBreakpointType':
-                this.runtime.breakpointManager.enableBreakpointType(args.breakpointTypeId);
+                this.runtime.breakpointManager.enableBreakpointTypes(args.breakpointTypeIds);
 
                 break;
 

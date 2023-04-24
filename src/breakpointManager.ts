@@ -10,7 +10,7 @@ export class CDAPBreakpointManager {
     private astElementRegistry: ASTElementRegistry;
 
     readonly _availableBreakpointTypes: BreakpointType[];
-    private enabledBreakpointTypes: Map<string, BreakpointType>;
+    private enabledBreakpointTypes: Map<string, BreakpointType[]>;
     private elementsWithBreakpoints: Set<ModelElement>;
     private activatedBreakpoints: Set<ModelElement>;
 
@@ -33,8 +33,7 @@ export class CDAPBreakpointManager {
             const targetElementType: string | undefined = breakpointType.parameters[0].objectType;
             if (targetElementType === undefined) continue;
 
-            // first encountered breakpoint type for an element type becomes the default one
-            if (!this.enabledBreakpointTypes.has(targetElementType)) this.enabledBreakpointTypes.set(targetElementType, breakpointType);
+            if (!this.enabledBreakpointTypes.has(targetElementType)) this.enabledBreakpointTypes.set(targetElementType, []);
             this._availableBreakpointTypes.push(breakpointType);
         }
     }
@@ -49,27 +48,29 @@ export class CDAPBreakpointManager {
         for (const element of this.elementsWithBreakpoints) {
             if (this.activatedBreakpoints.has(element)) continue;
 
-            const breakpointType: BreakpointType | undefined = this.enabledBreakpointTypes.get(element.type);
-            if (!breakpointType) continue;
+            const breakpointTypes: BreakpointType[] | undefined = this.enabledBreakpointTypes.get(element.type);
+            if (!breakpointTypes) continue;
 
-            const checkBreakpointResponse: CheckBreakpointResponse = await this.lrProxy.checkBreakpoint({
-                sourceFile: this.sourceFile,
-                typeId: breakpointType.id,
-                elementId: element.id
-            });
+            for (const breakpointType of breakpointTypes) {
+                const checkBreakpointResponse: CheckBreakpointResponse = await this.lrProxy.checkBreakpoint({
+                    sourceFile: this.sourceFile,
+                    typeId: breakpointType.id,
+                    elementId: element.id
+                });
 
-            if (checkBreakpointResponse.isActivated) {
-                this.activatedBreakpoints.add(element);
-                return {
-                    message: checkBreakpointResponse.message!,
-                    location: {
+                if (checkBreakpointResponse.isActivated) {
+                    this.activatedBreakpoints.add(element);
+                    return {
+                        message: checkBreakpointResponse.message!,
+                        location: {
 
-                        line: element.location!.line + this.lineOffset,
-                        endLine: element.location!.endLine + this.lineOffset,
-                        column: element.location!.column + this.columnOffset,
-                        endColumn: element.location!.endColumn + this.columnOffset + 1
-                    }
-                };
+                            line: element.location!.line + this.lineOffset,
+                            endLine: element.location!.endLine + this.lineOffset,
+                            column: element.location!.column + this.columnOffset,
+                            endColumn: element.location!.endColumn + this.columnOffset + 1
+                        }
+                    };
+                }
             }
         }
 
@@ -99,8 +100,8 @@ export class CDAPBreakpointManager {
                 continue;
             }
 
-            const breakpointType: BreakpointType | undefined = this.enabledBreakpointTypes.get(element.type);
-            if (!breakpointType) {
+            const breakpointTypes: BreakpointType[] | undefined = this.enabledBreakpointTypes.get(element.type);
+            if (!breakpointTypes) {
                 setBreakpoints.push({ verified: false });
                 continue;
             }
@@ -127,12 +128,18 @@ export class CDAPBreakpointManager {
         this.columnOffset = -!!(!columnsStartAt1);
     }
 
-    public enableBreakpointType(breakpointTypeId: string): void {
-        const breakpointType: BreakpointType | undefined = this._availableBreakpointTypes.find(breakpointType => breakpointType.id == breakpointTypeId);
+    public enableBreakpointTypes(breakpointTypeIds: string[]): void {
+        this.enabledBreakpointTypes.clear();
 
-        if (!breakpointType) return;
+        for (const breakpointTypeId of breakpointTypeIds) {
+            const breakpointType: BreakpointType | undefined = this._availableBreakpointTypes.find(breakpointType => breakpointType.id == breakpointTypeId);
 
-        this.enabledBreakpointTypes.set(breakpointType.parameters[0].objectType!, breakpointType);
+            if (!breakpointType) continue;
+
+            const targetType: string = breakpointType.parameters[0].objectType!;
+            if (!this.enabledBreakpointTypes.has(targetType)) this.enabledBreakpointTypes.set(targetType, []);
+            this.enabledBreakpointTypes.get(targetType)!.push(breakpointType);
+        }
     }
 
     public get availableBreakpointTypes(): DAPExtension.BreakpointType[] {
@@ -142,9 +149,14 @@ export class CDAPBreakpointManager {
                 id: breakpointType.id,
                 targetElementTypeId: breakpointType.parameters[0].objectType!,
                 description: breakpointType.description,
-                isEnabled: this.enabledBreakpointTypes.get(breakpointType.parameters[0].objectType!) == breakpointType
+                isEnabled: this.isBreakpointTypeEnabled(breakpointType)
             }
         });
+    }
+
+    private isBreakpointTypeEnabled(breakpointType: BreakpointType): boolean {
+        const enabledBreakpointTypesForTargetType: BreakpointType[] | undefined = this.enabledBreakpointTypes.get(breakpointType.parameters[0].objectType!);
+        return enabledBreakpointTypesForTargetType !== undefined && enabledBreakpointTypesForTargetType.includes(breakpointType);
     }
 }
 
