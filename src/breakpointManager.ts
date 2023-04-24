@@ -1,6 +1,6 @@
 
 import { DebugProtocol } from "@vscode/debugprotocol";
-import { BreakpointType, CheckBreakpointResponse, ModelElement } from "./lrp";
+import { BreakpointType, CheckBreakpointResponse, Location, ModelElement } from "./lrp";
 import { LanguageRuntimeProxy } from "./lrProxy";
 
 import * as DAPExtension from "./DAPExtension";
@@ -45,7 +45,7 @@ export class CDAPBreakpointManager {
      * 
      * @returns The breakpoint that activated first, or undefined if no breakpoint was activated.
      */
-    public async checkBreakpoints(): Promise<string | undefined> {
+    public async checkBreakpoints(): Promise<ActivatedBreakpoint | undefined> {
         for (const element of this.elementsWithBreakpoints) {
             if (this.activatedBreakpoints.has(element)) continue;
 
@@ -60,7 +60,16 @@ export class CDAPBreakpointManager {
 
             if (checkBreakpointResponse.isActivated) {
                 this.activatedBreakpoints.add(element);
-                return checkBreakpointResponse.message;
+                return {
+                    message: checkBreakpointResponse.message!,
+                    location: {
+
+                        line: element.location!.line + this.lineOffset,
+                        endLine: element.location!.endLine + this.lineOffset,
+                        column: element.location!.column + this.columnOffset,
+                        endColumn: element.location!.endColumn + this.columnOffset + 1
+                    }
+                };
             }
         }
 
@@ -139,6 +148,10 @@ export class CDAPBreakpointManager {
     }
 }
 
+export interface ActivatedBreakpoint {
+    message: string;
+    location: Location;
+}
 
 /**
  * Allows the quick retrieval of model elements.

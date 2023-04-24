@@ -2,6 +2,7 @@ import { DebugSession, Response, Scope, Source, StackFrame, Thread } from "@vsco
 import { DebugProtocol } from "@vscode/debugprotocol";
 import { CustomDebugRuntime } from "./customDebugRuntime";
 import { GetBreakpointTypesResponse } from "./DAPExtension";
+import { Location } from "./lrp";
 import { AST_ROOT_VARIABLES_REFERENCE, RUNTIME_STATE_ROOT_VARIABLES_REFERENCE } from "./variableHandler";
 
 
@@ -364,10 +365,22 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments, request?: DebugProtocol.Request | undefined): void {
-        const stackFrame: StackFrame = new StackFrame(0, 'Main', new Source(this.runtime.sourceFile));
+        const location: Location | undefined = this.runtime.activatedBreakpoint?.location;
+
+        const stackFrame: StackFrame = {
+            id: 0,
+            name: 'Main',
+            source: new Source(this.runtime.sourceFile),
+            line: location ? location.line : 0,
+            column: location ? location.column : 0,
+            endLine: location ? location.endLine : 0,
+            endColumn: location ? location.endColumn : 0
+        };
+
         response.body = {
             stackFrames: [stackFrame]
         }
+
         this.sendResponse(response);
     }
 

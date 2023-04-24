@@ -1,5 +1,5 @@
 import { Variable } from "@vscode/debugadapter";
-import { CDAPBreakpointManager } from "./breakpointManager";
+import { ActivatedBreakpoint, CDAPBreakpointManager } from "./breakpointManager";
 import { CustomDebugSession } from "./customDebugSession";
 import { GetBreakpointTypesResponse, GetRuntimeStateResponse, InitResponse, ParseResponse, StepResponse } from "./lrp";
 import { LanguageRuntimeProxy } from "./lrProxy";
@@ -20,6 +20,8 @@ export class CustomDebugRuntime {
     private variableHandler: VariableHandler;
 
     private _isExecutionDone: boolean;
+
+    private _activatedBreakpoint: ActivatedBreakpoint | undefined;
 
     constructor(private debugSession: CustomDebugSession, languageRuntimePort: number) {
         this.lrProxy = new LanguageRuntimeProxy(languageRuntimePort);
@@ -61,8 +63,7 @@ export class CustomDebugRuntime {
 
         while (!this._isExecutionDone) {
             if (!this.noDebug) {
-                let triggeredBreakpointDescription: string | undefined = await this._breakpointManager.checkBreakpoints();
-                if (triggeredBreakpointDescription) {
+                if (await this.checkBreakpoints()) {
                     // seq and type don't matter, they're changed inside sendEvent()
                     this.debugSession.sendEvent({
                         event: 'stopped',
@@ -70,12 +71,10 @@ export class CustomDebugRuntime {
                         type: 'event',
                         body: {
                             reason: 'breakpoint',
-                            description: triggeredBreakpointDescription,
+                            description: this._activatedBreakpoint!.message,
                             threadId: CustomDebugSession.threadID
                         }
                     });
-
-                    await this.updateRuntimeState();
 
                     return;
                 }
@@ -104,6 +103,23 @@ export class CustomDebugRuntime {
         if (!this._isExecutionDone) await this.updateRuntimeState();
     }
 
+    /**
+     * Checks whether a domain-specific breakpoint is activated on the current runtime state.
+     * 
+     * Should only be called after {@link initExecution} has been called.
+     * 
+     * @returns True if a breakpoint was activated, false otherwise.
+     */
+    private async checkBreakpoints(): Promise<boolean> {
+        this._activatedBreakpoint = await this._breakpointManager.checkBreakpoints();
+
+        if (this._activatedBreakpoint) {
+            await this.updateRuntimeState();
+            return true;
+        }
+
+        return false;
+    }
 
     /**
      * Retrieves the variables associated to a given reference.
@@ -140,5 +156,9 @@ export class CustomDebugRuntime {
 
     public get breakpointManager(): CDAPBreakpointManager {
         return this._breakpointManager;
+    }
+
+    public get activatedBreakpoint(): ActivatedBreakpoint | undefined {
+        return this._activatedBreakpoint;
     }
 }
