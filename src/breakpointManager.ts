@@ -100,8 +100,8 @@ export class CDAPBreakpointManager {
                 continue;
             }
 
-            const breakpointTypes: BreakpointType[] | undefined = this.enabledBreakpointTypes.get(element.type);
-            if (!breakpointTypes) {
+            const hasPossibleBreakpointType: boolean = this._availableBreakpointTypes.find(breakpointType => breakpointType.parameters[0].objectType! === element.type) !== undefined;
+            if (!hasPossibleBreakpointType) {
                 setBreakpoints.push({ verified: false });
                 continue;
             }
