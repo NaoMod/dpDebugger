@@ -1,6 +1,5 @@
 import * as Net from 'net';
 import { CustomDebugSession } from './customDebugSession';
-import constants = require('constants');
 
 let port: number = 0;
 const args = process.argv.slice(2);
@@ -21,4 +20,5 @@ const address: string | Net.AddressInfo | null = Net.createServer((socket) => {
   session.start(socket, socket);
 }).listen(port).address();
 
-console.error(`waiting for debug protocol at ${address}`);
+const addressString: string | undefined = typeof address === 'string' ? address : `localhost:${address?.port}`;
+console.error(`waiting for debug protocol at ${addressString}`);
