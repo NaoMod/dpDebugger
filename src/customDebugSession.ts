@@ -38,7 +38,7 @@ export class CustomDebugSession extends DebugSession {
         const response = new Response(request);
 
         // Check that the server is initialized
-        if (!this.isInitialized && !(request.command === 'initialize')) {
+        if (!this.isInitialized && request.command !== 'initialize') {
             this.sendErrorResponse(response, {
                 id: 200, format: '{_exception}', variables: {
                     _exception: 'The debug adapter is not yet initialized.'
@@ -157,7 +157,7 @@ export class CustomDebugSession extends DebugSession {
     protected attachRequest(response: DebugProtocol.AttachResponse, args: DebugProtocol.AttachRequestArguments, request?: DebugProtocol.Request | undefined): void {
         this.sendErrorResponse(response, {
             id: 100, format: '{_exception}', variables: {
-                _exception: 'Method not implemented.'
+                _exception: 'Method attachRequest not implemented.'
             }
         });
     }
@@ -232,7 +232,7 @@ export class CustomDebugSession extends DebugSession {
     protected sourceRequest(response: DebugProtocol.SourceResponse, args: DebugProtocol.SourceArguments, request?: DebugProtocol.Request | undefined): void {
         this.sendErrorResponse(response, {
             id: 100, format: '{_exception}', variables: {
-                _exception: 'Method not implemented.'
+                _exception: 'Method sourceRequest not implemented.'
             }
         });
     }
@@ -251,11 +251,6 @@ export class CustomDebugSession extends DebugSession {
                 _exception: 'Runtime doesn\'t correspond to the source file.'
             }
         });
-        /* this.sendResponse(response);
-
-        if (!this.runtime.isStopped && !this.runtime.isExecutionDone) {
-            this.runtime.pause();
-        } */
     }
 
     /**

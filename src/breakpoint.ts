@@ -5,18 +5,6 @@ import { LanguageRuntimeProxy } from "./lrProxy";
 
 import * as DAPExtension from "./DAPExtension";
 
-/**
- * Handles the addition, removal and check of domain-specific breakpoints on a running program.
- */
-/* export interface BreakpointManager {
-    checkBreakpoints(): Promise<string | undefined>;
-    setBreakpoints(breakpoints: DebugProtocol.SourceBreakpoint[]): DebugProtocol.Breakpoint[];
-    setFormat(linesStartAt1: boolean, columnsStartAt1: boolean): void;
-    getBreakpointTypes(): DAPExtension.BreakpointType[];
-    enableBreakpointType(breakpointTypeId: string): void;
-} */
-
-
 export class CDAPBreakpointManager {
 
     private sourceFile: string;

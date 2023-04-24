@@ -77,7 +77,7 @@ export class VariableHandler {
     }
 
     private getVariablesForModelElement(element: ModelElement): Variable[] {
-        var variables: Variable[] = [];
+        const variables: Variable[] = [];
 
         for (const attribute of Object.entries(element.attributes)) {
             variables.push(this.createVariable(attribute[0], attribute[1]));
@@ -95,7 +95,7 @@ export class VariableHandler {
     }
 
     private getVariablesForArray(array: any[]): Variable[] {
-        var variables: Variable[] = [];
+        const variables: Variable[] = [];
 
         for (let i = 0; i < array.length; i++) {
             variables.push(this.createVariable(i.toString(), array[i]));
@@ -104,7 +104,7 @@ export class VariableHandler {
         return variables;
     }
 
-    private buildRegistry(modelRoot: ModelElement | ModelElement): Map<string, ModelElement> {
+    private buildRegistry(modelRoot: ModelElement): Map<string, ModelElement> {
         const res: Map<string, ModelElement> = new Map();
         this.addElements(modelRoot, res);
 
@@ -147,7 +147,7 @@ export class VariableHandler {
     }
 
     private getReference(object: any): number {
-        var reference: number | undefined = this.variableReferenceRegistry.getReference(object);
+        let reference: number | undefined = this.variableReferenceRegistry.getReference(object);
         if (reference === undefined) {
             reference = this.currentReference;
             this.variableReferenceRegistry.set(object, reference);
