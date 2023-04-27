@@ -10,6 +10,7 @@ export interface CustomLaunchRequestArguments extends DebugProtocol.LaunchReques
     sourceFile: string;
     languageRuntimePort: number;
     pauseOnStart?: boolean;
+    enabledBreakpointTypeIds?: string[],
     additionalArgs?: any;
 }
 
@@ -207,6 +208,8 @@ export class CustomDebugSession extends DebugSession {
         this.runtime = new CustomDebugRuntime(this, args.languageRuntimePort);
         await this.runtime.initExecution(args.sourceFile, args.noDebug ? args.noDebug : false, args.additionalArgs);
         this.runtime.breakpointManager.setFormat(this.initializeArgs.linesStartAt1 == undefined ? true : this.initializeArgs.linesStartAt1, this.initializeArgs.columnsStartAt1 == undefined ? true : this.initializeArgs.columnsStartAt1);
+        
+        if (args.enabledBreakpointTypeIds) this.runtime.breakpointManager.enableBreakpointTypes(args.enabledBreakpointTypeIds);
 
         if (!args.pauseOnStart) this.runtime.run();
 
