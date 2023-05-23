@@ -1,7 +1,7 @@
 import { DebugSession, Response, Scope, Source, StackFrame, Thread } from "@vscode/debugadapter";
 import { DebugProtocol } from "@vscode/debugprotocol";
 import { CustomDebugRuntime } from "./customDebugRuntime";
-import { GetBreakpointTypesResponse } from "./DAPExtension";
+import { GetBreakpointTypesResponse } from "./dapExtension";
 import { Location } from "./lrp";
 import { AST_ROOT_VARIABLES_REFERENCE, RUNTIME_STATE_ROOT_VARIABLES_REFERENCE } from "./variableHandler";
 
