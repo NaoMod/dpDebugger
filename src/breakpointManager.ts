@@ -3,7 +3,7 @@ import { DebugProtocol } from "@vscode/debugprotocol";
 import { BreakpointType, CheckBreakpointResponse, Location, ModelElement } from "./lrp";
 import { LanguageRuntimeProxy } from "./lrProxy";
 
-import * as DAPExtension from "./DAPExtension";
+import * as DAPExtension from "./dapExtension";
 
 export class CDAPBreakpointManager {
 
@@ -201,10 +201,15 @@ export class ASTElementRegistry {
     }
 
     public getElementFromPosition(line: number, column: number): ModelElement | undefined {
-        const lineElements: ModelElement[] | undefined = this.locations.get(line);
-        if (lineElements === undefined) return undefined;
+        for (let i = line; i >= 0; i--) {
+            const lineElements: ModelElement[] | undefined = this.locations.get(i);
+            if (!lineElements) continue;
 
-        return lineElements.find(elem => this.isPositionContained(elem, line, column));
+            const elem: ModelElement | undefined = lineElements.find(elem => this.isPositionContained(elem, line, column));
+            if (elem) return elem;
+        }
+
+        return undefined;
     }
 
     private registerElement(element: ModelElement) {
@@ -230,6 +235,12 @@ export class ASTElementRegistry {
     }
 
     private isPositionContained(element: ModelElement, line: number, column: number): boolean {
-        return element.location!.line <= line && element.location!.endLine >= line && element.location!.column <= column && element.location!.endColumn >= column;
+        if (element.location!.line == line)
+            return element.location!.column <= column;
+
+        if (element.location!.endLine == line)
+            return element.location!.column >= column;
+
+        return element.location!.line <= line && element.location!.endLine >= line;
     }
 }
