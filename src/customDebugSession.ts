@@ -7,10 +7,19 @@ import { AST_ROOT_VARIABLES_REFERENCE, RUNTIME_STATE_ROOT_VARIABLES_REFERENCE } 
 
 
 export interface CustomLaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
+    /** Source file for which to launch execution. */
     sourceFile: string;
+
+    /** Port on which the language runtime associated to the source file is listening. */
     languageRuntimePort: number;
+
+    /** True if the program should stop before executing the first step. */
     pauseOnStart?: boolean;
+
+    /** Enabled breakpoint types at the start of execution. */
     enabledBreakpointTypeIds?: string[],
+
+    /** Additional arguments that may be required for specific languages. */
     additionalArgs?: any;
 }
 
@@ -208,7 +217,7 @@ export class CustomDebugSession extends DebugSession {
         this.runtime = new CustomDebugRuntime(this, args.languageRuntimePort);
         await this.runtime.initExecution(args.sourceFile, args.noDebug ? args.noDebug : false, args.additionalArgs);
         this.runtime.breakpointManager.setFormat(this.initializeArgs.linesStartAt1 == undefined ? true : this.initializeArgs.linesStartAt1, this.initializeArgs.columnsStartAt1 == undefined ? true : this.initializeArgs.columnsStartAt1);
-        
+
         if (args.enabledBreakpointTypeIds) this.runtime.breakpointManager.enableBreakpointTypes(args.enabledBreakpointTypeIds);
 
         if (!args.pauseOnStart) this.runtime.run();
