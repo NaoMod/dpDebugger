@@ -90,7 +90,7 @@ export class CustomDebugRuntime {
     }
 
     /**
-     * Asks for the execution of the next atomc step to the language.
+     * Asks for the execution of the next atomic step to the language.
      * 
      * Should only be called after {@link initExecution} has been called.
      */
@@ -100,7 +100,7 @@ export class CustomDebugRuntime {
 
         const stepResponse: StepResponse = await this.lrProxy.nextStep({ sourceFile: this._sourceFile });
         this._isExecutionDone = stepResponse.isExecutionDone;
-        if (!this._isExecutionDone) await this.updateRuntimeState();
+        await this.updateRuntimeState();
     }
 
     /**

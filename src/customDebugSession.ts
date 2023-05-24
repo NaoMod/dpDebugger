@@ -468,24 +468,23 @@ export class CustomDebugSession extends DebugSession {
      * {@link CustomDebugRuntime.stepInto} or {@link CustomDebugRuntime.stepOut}.
      */
     private async performStepAction(stepFunction: () => Promise<void>): Promise<void> {
-        if (!this.runtime.isExecutionDone) {
-            await stepFunction.call(this.runtime);
+        if (this.runtime.isExecutionDone) {
+            // seq and type don't matter, they're changed inside sendEvent()
+            this.sendEvent({
+                event: 'terminated', seq: 1, type: 'event'
+            });
 
-            if (this.runtime.isExecutionDone) {
-                // seq and type don't matter, they're changed inside sendEvent()
-                this.sendEvent({
-                    event: 'terminated', seq: 1, type: 'event'
-                });
-            } else {
-                // seq and type don't matter, they're changed inside sendEvent()
-                this.sendEvent({
-                    event: 'stopped', seq: 1, type: 'event', body: {
-                        reason: 'step',
-                        threadId: CustomDebugSession.threadID
-                    }
-                });
-            }
-
+            return;
         }
+
+        await stepFunction.call(this.runtime);
+
+        // seq and type don't matter, they're changed inside sendEvent()
+        this.sendEvent({
+            event: 'stopped', seq: 1, type: 'event', body: {
+                reason: 'step',
+                threadId: CustomDebugSession.threadID
+            }
+        });
     }
 }
