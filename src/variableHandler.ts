@@ -135,15 +135,20 @@ export class VariableHandler {
     }
 
     private createVariableFromRef(name: string, ref: string | string[]): Variable {
-        if (Array.isArray(ref)) {
-            return new Variable(name, 'Array[' + ref.length + ']', this.getReference(ref), ref.length);
-        } else {
-            let referencedObject: ModelElement | undefined = this.idToAstElement.get(ref);
-            if (referencedObject === undefined) referencedObject = this.idToRuntimeStateElement.get(ref);
-            if (referencedObject === undefined) throw new Error('Reference ' + ref + ' is invalid.');
+        if (ref === null) return new Variable(name, JSON.stringify(ref));
 
-            return new Variable(name, referencedObject.type, this.getReference(referencedObject));
+        if (Array.isArray(ref)) {
+            if (ref.length == 0) return new Variable(name, 'Array[' + ref.length + ']');
+
+            return new Variable(name, 'Array[' + ref.length + ']', this.getReference(ref), ref.length);
         }
+
+        let referencedObject: ModelElement | undefined = this.idToAstElement.get(ref);
+        if (referencedObject === undefined) referencedObject = this.idToRuntimeStateElement.get(ref);
+        if (referencedObject === undefined) throw new Error('Reference ' + ref + ' is invalid.');
+
+        return new Variable(name, referencedObject.type, this.getReference(referencedObject));
+        
     }
 
     private getReference(object: any): number {
