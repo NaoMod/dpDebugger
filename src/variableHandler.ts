@@ -158,6 +158,8 @@ export class VariableHandler {
      * @returns The variable corresponding to the object.
      */
     private createVariable(name: string, object: any): Variable {
+        if (object === null) return new Variable(name, JSON.stringify(object));
+
         if (Array.isArray(object)) return new Variable(name, 'Array[' + object.length + ']', this.getReference(object), object.length);
 
         if (this.isModelElement(object)) return new Variable(name, object.type, this.getReference(object));
