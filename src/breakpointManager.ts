@@ -236,10 +236,10 @@ export class ASTElementRegistry {
 
     private isPositionContained(element: ModelElement, line: number, column: number): boolean {
         if (element.location!.line == line)
-            return element.location!.column <= column;
+            return element.location!.endLine == line ? element.location!.column <= column && element.location!.endColumn >= column : element.location!.column <= column;
 
         if (element.location!.endLine == line)
-            return element.location!.column >= column;
+            return element.location!.endColumn >= column;
 
         return element.location!.line <= line && element.location!.endLine >= line;
     }
