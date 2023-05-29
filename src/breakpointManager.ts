@@ -5,6 +5,9 @@ import { LanguageRuntimeProxy } from "./lrProxy";
 
 import * as DAPExtension from "./dapExtension";
 
+/**
+ * Manages breakpoints set through cDAP.
+ */
 export class CDAPBreakpointManager {
 
     private astElementRegistry: ASTElementRegistry;
@@ -78,7 +81,13 @@ export class CDAPBreakpointManager {
         return undefined;
     }
 
-
+    /**
+     * Sets multiple breakpoints.
+     * Previsouly set breakpoints are removed.
+     * 
+     * @param breakpoints The breakpoints to be set.
+     * @returns Information about the result of setting each breakpoint.
+     */
     public setBreakpoints(breakpoints: DebugProtocol.SourceBreakpoint[]): DebugProtocol.Breakpoint[] {
         this.elementsWithBreakpoints.clear();
         const setBreakpoints: DebugProtocol.Breakpoint[] = [];
@@ -123,11 +132,23 @@ export class CDAPBreakpointManager {
         return setBreakpoints;
     }
 
+    /**
+     * Sets the format of lines and columns manipulated by the editor.
+     * 
+     * @param linesStartAt1 True if the lines start at one, false if they start at 0.
+     * @param columnsStartAt1 True if the columns start at one, false if they start at 0.
+     */
     public setFormat(linesStartAt1: boolean, columnsStartAt1: boolean): void {
         this.lineOffset = -!!(!linesStartAt1);
         this.columnOffset = -!!(!columnsStartAt1);
     }
 
+    /**
+     * Enables multiple breakpoint types.
+     * Previsouly enabled breakpoint types are disabled.
+     * 
+     * @param breakpointTypeIds 
+     */
     public enableBreakpointTypes(breakpointTypeIds: string[]): void {
         this.enabledBreakpointTypes.clear();
 
@@ -142,6 +163,9 @@ export class CDAPBreakpointManager {
         }
     }
 
+    /**
+     * Fetches the currently available breakpoint types.
+     */
     public get availableBreakpointTypes(): DAPExtension.BreakpointType[] {
         return this._availableBreakpointTypes.map(breakpointType => {
             return {
@@ -154,14 +178,26 @@ export class CDAPBreakpointManager {
         });
     }
 
+    /**
+     * Checks whether a breakpoint type is currently enabled.
+     * 
+     * @param breakpointType The breakpoint type to check for.
+     * @returns True if the breakpoint type is currently enabled, false otherwise.
+     */
     private isBreakpointTypeEnabled(breakpointType: BreakpointType): boolean {
         const enabledBreakpointTypesForTargetType: BreakpointType[] | undefined = this.enabledBreakpointTypes.get(breakpointType.parameters[0].objectType!);
         return enabledBreakpointTypesForTargetType !== undefined && enabledBreakpointTypesForTargetType.includes(breakpointType);
     }
 }
 
+/**
+ * Contains information about an activated breakpoint.
+ */
 export interface ActivatedBreakpoint {
+    /** Message to be displayed to the user. */
     message: string;
+
+    /** Location of the model element on which the activated breakpoint is attached. */
     location: Location;
 }
 
@@ -200,6 +236,13 @@ export class ASTElementRegistry {
         return this.elements.get(elemenId);
     }
 
+    /**
+     * Retrieves a model element at a specific position in a textual source file.
+     * 
+     * @param line The line of the element in the source file.
+     * @param column The column of the element in the source file.
+     * @returns The model element at the given position, or undefined if there is none. 
+     */
     public getElementFromPosition(line: number, column: number): ModelElement | undefined {
         for (let i = line; i >= 0; i--) {
             const lineElements: ModelElement[] | undefined = this.locations.get(i);
@@ -212,6 +255,11 @@ export class ASTElementRegistry {
         return undefined;
     }
 
+    /**
+     * Register a new model element from the AST.
+     * 
+     * @param element The element to register.
+     */
     private registerElement(element: ModelElement) {
         this.elements.set(element.id, element);
 
@@ -234,6 +282,13 @@ export class ASTElementRegistry {
         }
     }
 
+    /**
+     * Checks whether a position is contained in the location of a model element.
+     * @param element The model element conatining the location against which the position will be checked.
+     * @param line The line of the position.
+     * @param column THe column of the position.
+     * @returns True if the position is contained, false otherwise.
+     */
     private isPositionContained(element: ModelElement, line: number, column: number): boolean {
         if (element.location!.line == line)
             return element.location!.endLine == line ? element.location!.column <= column && element.location!.endColumn >= column : element.location!.column <= column;

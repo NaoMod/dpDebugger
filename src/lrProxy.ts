@@ -90,6 +90,12 @@ export class LanguageRuntimeProxy extends Proxy {
         return this.request('getRuntimeState', [args]);
     }
 
+    /**
+     * Checks whether a breakpoint is activated.
+     * 
+     * @param args The arguments for the verification of the breakpoint.
+     * @returns The response from the breakpoint verification.
+     */
     public async checkBreakpoint(args: CheckBreakpointArguments): Promise<CheckBreakpointResponse> {
         return this.request('checkBreakpoint', [args]);
     }

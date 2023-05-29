@@ -76,6 +76,12 @@ export class VariableHandler {
         this.currentReference = 3;
     }
 
+    /**
+     * Retrieves the variables contained in a model element.
+     * 
+     * @param element The model element for which to retrieve variables.
+     * @returns The variables corresponding to the attributes, references and children of the model element.
+     */
     private getVariablesForModelElement(element: ModelElement): Variable[] {
         const variables: Variable[] = [];
 
@@ -94,6 +100,12 @@ export class VariableHandler {
         return variables;
     }
 
+    /**
+     * Retrieves the variables contained in an array.
+     * 
+     * @param array The array for which to retrieve variables.
+     * @returns The variables corresponding to the elements contained in the array.
+     */
     private getVariablesForArray(array: any[]): Variable[] {
         const variables: Variable[] = [];
 
@@ -104,6 +116,13 @@ export class VariableHandler {
         return variables;
     }
 
+    /**
+     * Adds model elements to the registry of all model elements.
+     * 
+     * @param modelRoot The root from which to add model elements. All model elements recursively contained by the 
+     * root will be added to the registry.
+     * @returns The registry built from the model root.
+     */
     private buildRegistry(modelRoot: ModelElement): Map<string, ModelElement> {
         const res: Map<string, ModelElement> = new Map();
         this.addElements(modelRoot, res);
@@ -111,6 +130,12 @@ export class VariableHandler {
         return res;
     }
 
+    /**
+     * Add a single model element to a registry of all model elements.
+     * 
+     * @param currentElement The model element to add to the registry.
+     * @param registry The registry of model elements.
+     */
     private addElements(currentElement: ModelElement, registry: Map<string, ModelElement>): void {
         registry.set(currentElement.id, currentElement);
 
@@ -125,6 +150,13 @@ export class VariableHandler {
         }
     }
 
+    /**
+     * Creates a variable for an object.
+     * 
+     * @param name The name of the variable.
+     * @param object The object for which to create the variable.
+     * @returns The variable corresponding to the object.
+     */
     private createVariable(name: string, object: any): Variable {
         if (Array.isArray(object)) return new Variable(name, 'Array[' + object.length + ']', this.getReference(object), object.length);
 
@@ -134,6 +166,13 @@ export class VariableHandler {
         return new Variable(name, JSON.stringify(object));
     }
 
+    /**
+     * Creates a variable for a reference.
+     * 
+     * @param name The name of the variable.
+     * @param ref The reference for which to create the variable.
+     * @returns The variable corresponding to the reference.
+     */
     private createVariableFromRef(name: string, ref: string | string[]): Variable {
         if (ref === null) return new Variable(name, JSON.stringify(ref));
 
@@ -148,9 +187,15 @@ export class VariableHandler {
         if (referencedObject === undefined) throw new Error('Reference ' + ref + ' is invalid.');
 
         return new Variable(name, referencedObject.type, this.getReference(referencedObject));
-        
+
     }
 
+    /**
+     * Retrieves the reference associated to an object.
+     * 
+     * @param object The object for which to retrieve the reference.
+     * @returns The reference associated to the object.
+     */
     private getReference(object: any): number {
         let reference: number | undefined = this.variableReferenceRegistry.getReference(object);
         if (reference === undefined) {
@@ -162,6 +207,12 @@ export class VariableHandler {
         return reference;
     }
 
+    /**
+     * Checks whether an object is a model element.
+     * 
+     * @param object The object to check.
+     * @returns True if the object is a model element, false otherwise.
+     */
     private isModelElement(object: any): object is ModelElement {
         // best way to go through keys of ModelElement interface since the keyof keyword is not available
         // will break when ModelElement is changed
@@ -179,7 +230,6 @@ export class VariableHandler {
 
         return true;
     }
-
 }
 
 
