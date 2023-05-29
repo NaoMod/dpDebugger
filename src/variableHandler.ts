@@ -137,6 +137,8 @@ export class VariableHandler {
      * @param registry The registry of model elements.
      */
     private addElements(currentElement: ModelElement, registry: Map<string, ModelElement>): void {
+        if (currentElement === null) return;
+        
         registry.set(currentElement.id, currentElement);
 
         for (const child of Object.values(currentElement.children)) {
