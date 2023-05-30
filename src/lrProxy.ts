@@ -48,53 +48,60 @@ class Proxy {
 export class LanguageRuntimeProxy extends Proxy {
 
     /**
-     * Asks the language to parse a program and store its AST.
+     * Asks the language runtime to parse a program and store its AST.
      * 
-     * @param file The path of the file containing the program to parse.
+     * @param args The arguments of the request.
+     * @returns The LRP response to the request.
      */
     public async parse(args: ParseArguments): Promise<ParseResponse> {
         return this.request('parse', [args]);
     }
 
     /**
-     * Asks the language to initialize the execution of a program.
+     * Asks the language runtime to create a new runtime state for a given source file and store it.
+     * The AST for the given source file must have been previously constructed through the {@link parse} service.
      * 
-     * @param args The arguments for the initialization of the program execution.
-     * @returns The response from the initialization.
+     * @param args The arguments of the request.
+     * @returns The LRP response to the request.
      */
     public async initExecution(args: InitArguments): Promise<InitResponse> {
         return this.request('initExecution', [args]);
     }
 
-    public async getBreakpointTypes(): Promise<GetBreakpointTypesResponse> {
-        return this.request('getBreakpointTypes', []);
-    }
-
     /**
-     * Asks the language to execute the next atomic step.
+     * Asks the language runtime to perform the next execution step in the runtime state associated to a given source file.
      * 
-     * @param file The path of the file containing the running program.
-     * @returns The response from the atomic step execution.
+     * @param args The arguments of the request.
+     * @returns The LRP response to the request.
      */
     public async nextStep(args: StepArguments): Promise<StepResponse> {
         return this.request('nextStep', [args]);
     }
 
     /**
-     * Retrieves the current runtime state of a program from the language.
+     * Asks the language runtime to return the current runtime state for a given source file.
      * 
-     * @param file The path of the file containing the running program.
-     * @returns The current runtime state of the program.
+     * @param args The arguments of the request.
+     * @returns The LRP response to the request.
      */
     public async getRuntimeState(args: GetRuntimeStateArguments): Promise<GetRuntimeStateResponse> {
         return this.request('getRuntimeState', [args]);
     }
 
     /**
-     * Checks whether a breakpoint is activated.
+     * Asks the language runtime to return the available breakpoint types it defines.
      * 
-     * @param args The arguments for the verification of the breakpoint.
-     * @returns The response from the breakpoint verification.
+     * @returns The LRP response to the request.
+     */
+    public async getBreakpointTypes(): Promise<GetBreakpointTypesResponse> {
+        return this.request('getBreakpointTypes', []);
+    }
+
+    /**
+     * Asks the language runtime to check whether a breakpoint of a certain type is verified with the given arguments.
+     * 
+     * @param args The arguments of the request.
+     * @returns The LRP response to the request.
      */
     public async checkBreakpoint(args: CheckBreakpointArguments): Promise<CheckBreakpointResponse> {
         return this.request('checkBreakpoint', [args]);
