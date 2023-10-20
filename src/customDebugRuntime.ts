@@ -1,20 +1,19 @@
-import { Variable } from "@vscode/debugadapter";
+import { Scope, StackFrame, Thread, Variable } from "@vscode/debugadapter";
+import { DebugProtocol } from "@vscode/debugprotocol";
 import { ActivatedBreakpoint, CDAPBreakpointManager } from "./breakpointManager";
 import { CustomDebugSession } from "./customDebugSession";
-import { GetBreakpointTypesResponse, GetRuntimeStateResponse, InitResponse, ParseResponse, StepResponse } from "./lrp";
+import { GetBreakpointTypesResponse, GetRuntimeStateResponse, InitResponse, LanguageRuntimeCapabilities, ParseResponse, StepArguments, StepResponse } from "./lrp";
 import { LanguageRuntimeProxy } from "./lrProxy";
-
 import { VariableHandler } from "./variableHandler";
 
 /**
  * Handles debugging operations for a source file.
  */
 export class CustomDebugRuntime {
-
     private _sourceFile: string;
     private noDebug: boolean;
 
-    private lrProxy: LanguageRuntimeProxy;
+    readonly lrProxy: LanguageRuntimeProxy;
 
     private _breakpointManager: CDAPBreakpointManager;
     private variableHandler: VariableHandler;
@@ -22,6 +21,8 @@ export class CustomDebugRuntime {
     private _isExecutionDone: boolean;
 
     private _activatedBreakpoint: ActivatedBreakpoint | undefined;
+
+    private _languageRuntimeCapabilities: LanguageRuntimeCapabilities;
 
     constructor(private debugSession: CustomDebugSession, languageRuntimePort: number) {
         this.lrProxy = new LanguageRuntimeProxy(languageRuntimePort);
@@ -39,6 +40,7 @@ export class CustomDebugRuntime {
 
         this._sourceFile = sourceFile;
         this.noDebug = noDebug;
+        this._languageRuntimeCapabilities = (await this.lrProxy.initialize()).capabilities;
 
         const parseResponse: ParseResponse = await this.lrProxy.parse({ sourceFile: sourceFile });
         const initResponse: InitResponse = await this.lrProxy.initExecution({ sourceFile: sourceFile, ...additionalArgs });
@@ -57,9 +59,14 @@ export class CustomDebugRuntime {
      * activated by the user. Otherwise, the program runs normally.
      * 
      * Should only be called after {@link initExecution} has been called.
+     * 
+     * @param threadId ID of the thread for which to resume execution. If not provided, all threads resume execution.
+     * If the langauge runtime doesn't support threads, then this parameter sould either not be provided, or be equal to the mock thread ID
+     * {@link CustomDebugSession.threadID}.
      */
-    public async run() {
+    public async run(threadId?: number) {
         if (!this._sourceFile) throw new Error('No sources loaded.');
+        if (!this._languageRuntimeCapabilities.supportsThreads && threadId != CustomDebugSession.threadID) throw new Error('Unexpected thread ID.')
 
         while (!this._isExecutionDone) {
             if (!this.noDebug) {
@@ -72,7 +79,7 @@ export class CustomDebugRuntime {
                         body: {
                             reason: 'breakpoint',
                             description: this._activatedBreakpoint!.message,
-                            threadId: CustomDebugSession.threadID
+                            threadId: threadId ? threadId : CustomDebugSession.threadID
                         }
                     });
 
@@ -80,7 +87,13 @@ export class CustomDebugRuntime {
                 }
             }
 
-            this._isExecutionDone = (await this.lrProxy.nextStep({ sourceFile: this._sourceFile })).isExecutionDone;
+            const args: StepArguments = {
+                sourceFile: this._sourceFile
+            };
+
+            if (threadId) args.threadId = threadId;
+
+            this._isExecutionDone = (await this.lrProxy.nextStep(args)).isExecutionDone;
         }
 
         // seq and type don't matter, they're changed inside sendEvent()
@@ -93,12 +106,23 @@ export class CustomDebugRuntime {
      * Asks for the execution of the next atomic step to the language.
      * 
      * Should only be called after {@link initExecution} has been called.
+     * 
+     * @param threadId ID of the thread in which to execute a step. If not provided, all threads perform a step.
+     * If the langauge runtime doesn't support threads, then this parameter sould either not be provided, or be equal to the mock thread ID
+     * {@link CustomDebugSession.threadID}.
      */
-    public async nextStep() {
+    public async nextStep(threadId?: number) {
         if (!this._sourceFile) throw new Error('No sources loaded.');
         if (this._isExecutionDone) throw new Error('Execution is already done.');
+        if (!this._languageRuntimeCapabilities.supportsThreads && threadId != CustomDebugSession.threadID) throw new Error('Unexpected thread ID.')
 
-        const stepResponse: StepResponse = await this.lrProxy.nextStep({ sourceFile: this._sourceFile });
+        const args: StepArguments = {
+            sourceFile: this._sourceFile
+        };
+
+        if (threadId) args.threadId = threadId;
+
+        const stepResponse: StepResponse = await this.lrProxy.nextStep(args);
         this._isExecutionDone = stepResponse.isExecutionDone;
         await this.updateRuntimeState();
     }
@@ -160,5 +184,9 @@ export class CustomDebugRuntime {
 
     public get activatedBreakpoint(): ActivatedBreakpoint | undefined {
         return this._activatedBreakpoint;
+    }
+
+    public get capabilities(): LanguageRuntimeCapabilities {
+        return this._languageRuntimeCapabilities;
     }
 }

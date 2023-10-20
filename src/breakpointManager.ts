@@ -3,7 +3,7 @@ import { DebugProtocol } from "@vscode/debugprotocol";
 import { BreakpointType, CheckBreakpointResponse, Location, ModelElement } from "./lrp";
 import { LanguageRuntimeProxy } from "./lrProxy";
 
-import * as DAPExtension from "./dapExtension";
+import * as DAPExtension from "./DAPExtension";
 
 /**
  * Manages breakpoints set through cDAP.

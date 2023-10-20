@@ -1,3 +1,4 @@
+
 interface Arguments {
     /** Source file targeted by the service call. */
     sourceFile: string;
@@ -25,7 +26,10 @@ export interface GetBreakpointTypesResponse {
     breakpointTypes: BreakpointType[];
 }
 
-export interface StepArguments extends Arguments { }
+export interface StepArguments extends Arguments {
+    /* Thread in which to perform one step. */
+    threadId?: number;
+}
 
 export interface StepResponse {
     /** True if the execution is done, false otherwise. */
@@ -145,4 +149,14 @@ export enum PrimitiveType {
     BOOLEAN = 'boolean',
     STRING = 'string',
     NUMBER = 'number'
+}
+
+export interface InitializeResponse {
+    capabilities: LanguageRuntimeCapabilities;
+}
+
+export interface LanguageRuntimeCapabilities {
+    supportsThreads: boolean;
+    supportsStackTrace: boolean;
+    supportsScopes: boolean;
 }

@@ -1,5 +1,6 @@
 import { Client, RequestParamsLike } from "jayson";
-import { CheckBreakpointArguments, CheckBreakpointResponse, GetBreakpointTypesResponse, GetRuntimeStateArguments, GetRuntimeStateResponse, InitArguments, InitResponse, ParseArguments, ParseResponse, StepArguments, StepResponse } from "./lrp";
+import { CheckBreakpointArguments, CheckBreakpointResponse, GetBreakpointTypesResponse, GetRuntimeStateArguments, GetRuntimeStateResponse, InitArguments, InitializeResponse, InitResponse, ParseArguments, ParseResponse, StepArguments, StepResponse } from "./lrp";
+import { DebugProtocol } from "@vscode/debugprotocol";
 
 /**
  * Proxy for a JSON-RPC server.
@@ -47,6 +48,10 @@ class Proxy {
  */
 export class LanguageRuntimeProxy extends Proxy {
 
+    public async initialize(): Promise<InitializeResponse> {
+        return this.request('initialize', []);
+    }
+    
     /**
      * Asks the language runtime to parse a program and store its AST.
      * 
@@ -105,5 +110,17 @@ export class LanguageRuntimeProxy extends Proxy {
      */
     public async checkBreakpoint(args: CheckBreakpointArguments): Promise<CheckBreakpointResponse> {
         return this.request('checkBreakpoint', [args]);
+    }
+
+    public async threads(): Promise<DebugProtocol.ThreadsResponse> {
+        return this.request('threads', []);
+    }
+
+    public async stackTrace(args: DebugProtocol.StackTraceArguments): Promise<DebugProtocol.StackTraceResponse> {
+        return this.request('stackTrace', [args]);
+    }
+
+    public async scopes(args: DebugProtocol.ScopesArguments): Promise<DebugProtocol.ScopesResponse> {
+        return this.request('scopes', [args]);
     }
 }
