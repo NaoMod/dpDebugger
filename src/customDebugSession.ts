@@ -2,7 +2,7 @@ import { DebugSession, Response, Scope, Source, StackFrame, Thread } from "@vsco
 import { DebugProtocol } from "@vscode/debugprotocol";
 import { threadId } from "worker_threads";
 import { CustomDebugRuntime } from "./customDebugRuntime";
-import { GetBreakpointTypesResponse } from "./DAPExtension";
+import { GetAvailableStepsResponse, GetBreakpointTypesResponse, GetSteppingModesResponse } from "./DAPExtension";
 import { Location } from "./lrp";
 import { AST_ROOT_VARIABLES_REFERENCE, RUNTIME_STATE_ROOT_VARIABLES_REFERENCE } from "./variableHandler";
 
@@ -35,7 +35,7 @@ export interface CustomLaunchRequestArguments extends DebugProtocol.LaunchReques
  */
 export class CustomDebugSession extends DebugSession {
 
-    // we don't support multiple threads, so we can use a hardcoded ID for the default thread
+    // Hardcoded ID for the default thread
     static readonly threadID: number = 1;
 
     private isInitialized: boolean = false;
@@ -198,6 +198,11 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected async threadsRequest(response: DebugProtocol.ThreadsResponse, request?: DebugProtocol.Request | undefined): Promise<void> {
+        // TODO: fix conflicting calls during initialization
+        while (!this.runtime.isInitDone) await new Promise<void>(resolve => setTimeout(() => {
+            resolve()
+        }, 200));
+
         if (this.runtime.capabilities.supportsThreads) {
             response.body = (await this.runtime.lrProxy.threads()).body;
         } else {
@@ -236,7 +241,8 @@ export class CustomDebugSession extends DebugSession {
             this.sendEvent({
                 event: 'stopped', seq: 1, type: 'event', body: {
                     reason: 'entry',
-                    threadId: CustomDebugSession.threadID
+                    threadId: CustomDebugSession.threadID,
+                    allThreadsStopped: true
                 }
             });
         }
@@ -312,7 +318,7 @@ export class CustomDebugSession extends DebugSession {
      */
     protected async setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
         // TODO: fix conflicting calls during initialization
-        while (!this.runtime || !this.runtime.breakpointManager) await new Promise<void>(resolve => setTimeout(() => {
+        while (!this.runtime.isInitDone) await new Promise<void>(resolve => setTimeout(() => {
             resolve()
         }, 200));
 
@@ -446,7 +452,11 @@ export class CustomDebugSession extends DebugSession {
     }
 
     protected async customRequest(command: string, response: DebugProtocol.Response, args: any, request?: DebugProtocol.Request | undefined): Promise<void> {
-
+        // TODO: fix conflicting calls during initialization
+        while (!this.runtime.isInitDone) await new Promise<void>(resolve => setTimeout(() => {
+            resolve()
+        }, 200));
+        
         switch (command) {
             case 'getBreakpointTypes':
                 const res: GetBreakpointTypesResponse = {
@@ -459,6 +469,44 @@ export class CustomDebugSession extends DebugSession {
 
             case 'enableBreakpointTypes':
                 this.runtime.breakpointManager.enableBreakpointTypes(args.breakpointTypeIds);
+
+                break;
+
+            case 'getSteppingModes':
+                const steppingModeBody: GetSteppingModesResponse = {
+                    steppingModes: this.runtime.getAvailableSteppingModes()
+                };
+
+                response.body = steppingModeBody;
+
+                break;
+
+            case 'enableSteppingMode':
+                this.runtime.enableSteppingMode(args.steppingModeId);
+
+                // seq and type don't matter, they're changed inside sendEvent()
+                this.sendEvent({
+                    event: 'invalidated',
+                    seq: 1,
+                    type: 'event',
+                    body: {
+                        areas: ['variables']
+                    }
+                });
+
+                break;
+
+            case 'getAvailableSteps':
+                const availableStepsBody: GetAvailableStepsResponse = {
+                    availableSteps: await this.runtime.getAvailableSteps()
+                };
+
+                response.body = availableStepsBody;
+
+                break;
+
+            case 'enableStep':
+                this.runtime.enableStep(args ? args.stepId : undefined);
 
                 break;
 

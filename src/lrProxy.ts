@@ -1,5 +1,5 @@
 import { Client, RequestParamsLike } from "jayson";
-import { CheckBreakpointArguments, CheckBreakpointResponse, GetBreakpointTypesResponse, GetRuntimeStateArguments, GetRuntimeStateResponse, InitArguments, InitializeResponse, InitResponse, ParseArguments, ParseResponse, StepArguments, StepResponse } from "./lrp";
+import { CheckBreakpointArguments, CheckBreakpointResponse, GetAvailableStepsArguments, GetAvailableStepsResponse, GetBreakpointTypesResponse, GetRuntimeStateArguments, GetRuntimeStateResponse, GetSteppingModesResponse, InitArguments, InitializeResponse, InitResponse, ParseArguments, ParseResponse, StepArguments, StepResponse } from "./lrp";
 import { DebugProtocol } from "@vscode/debugprotocol";
 
 /**
@@ -110,6 +110,14 @@ export class LanguageRuntimeProxy extends Proxy {
      */
     public async checkBreakpoint(args: CheckBreakpointArguments): Promise<CheckBreakpointResponse> {
         return this.request('checkBreakpoint', [args]);
+    }
+
+    public async getSteppingModes(): Promise<GetSteppingModesResponse> {
+        return this.request('getSteppingModes', []);
+    }
+
+    public async getAvailableSteps(args: GetAvailableStepsArguments): Promise<GetAvailableStepsResponse> {
+        return this.request('getAvailableSteps', [args]);
     }
 
     public async threads(): Promise<DebugProtocol.ThreadsResponse> {

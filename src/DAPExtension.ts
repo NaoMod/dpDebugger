@@ -53,3 +53,9 @@ export interface GetSteppingModesResponse {
     /** Stepping modes defined by the language runtime. */
     steppingModes: SteppingMode[];
 }
+
+export interface Step extends Leaf { }
+
+export interface GetAvailableStepsResponse {
+    availableSteps: Step[];
+}

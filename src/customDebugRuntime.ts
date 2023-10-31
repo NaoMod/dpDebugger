@@ -1,9 +1,10 @@
-import { Scope, StackFrame, Thread, Variable } from "@vscode/debugadapter";
-import { DebugProtocol } from "@vscode/debugprotocol";
+import { Variable } from "@vscode/debugadapter";
 import { ActivatedBreakpoint, CDAPBreakpointManager } from "./breakpointManager";
 import { CustomDebugSession } from "./customDebugSession";
-import { GetBreakpointTypesResponse, GetRuntimeStateResponse, InitResponse, LanguageRuntimeCapabilities, ParseResponse, StepArguments, StepResponse } from "./lrp";
+import { Step, SteppingMode } from "./DAPExtension";
+import { GetAvailableStepsArguments, GetBreakpointTypesResponse, GetRuntimeStateResponse, GetSteppingModesResponse, InitResponse, LanguageRuntimeCapabilities, ParseResponse, StepArguments, StepResponse } from "./lrp";
 import { LanguageRuntimeProxy } from "./lrProxy";
+import { StepManager } from "./stepManager";
 import { VariableHandler } from "./variableHandler";
 
 /**
@@ -16,6 +17,7 @@ export class CustomDebugRuntime {
     readonly lrProxy: LanguageRuntimeProxy;
 
     private _breakpointManager: CDAPBreakpointManager;
+    private _stepManager: StepManager;
     private variableHandler: VariableHandler;
 
     private _isExecutionDone: boolean;
@@ -24,8 +26,11 @@ export class CustomDebugRuntime {
 
     private _languageRuntimeCapabilities: LanguageRuntimeCapabilities;
 
+    private _isInitDone: boolean;
+
     constructor(private debugSession: CustomDebugSession, languageRuntimePort: number) {
         this.lrProxy = new LanguageRuntimeProxy(languageRuntimePort);
+        this._isInitDone = false;
     }
 
     /**
@@ -45,11 +50,17 @@ export class CustomDebugRuntime {
         const parseResponse: ParseResponse = await this.lrProxy.parse({ sourceFile: sourceFile });
         const initResponse: InitResponse = await this.lrProxy.initExecution({ sourceFile: sourceFile, ...additionalArgs });
         const getBreakpointTypes: GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
+        const getSteppingModesResponse: GetSteppingModesResponse = await this.lrProxy.getSteppingModes();
         const getRuntimeStateResponse: GetRuntimeStateResponse = await this.lrProxy.getRuntimeState({ sourceFile: sourceFile });
 
         this._breakpointManager = new CDAPBreakpointManager(sourceFile, this.lrProxy, parseResponse.astRoot, getBreakpointTypes.breakpointTypes);
+        this._stepManager = new StepManager(getSteppingModesResponse.steppingModes);
         this.variableHandler = new VariableHandler(parseResponse.astRoot, getRuntimeStateResponse.runtimeStateRoot);
         this._isExecutionDone = initResponse.isExecutionDone;
+
+        if (!this._isExecutionDone) await this.refreshAvailableSteps();
+
+        this._isInitDone = true;
     }
 
 
@@ -66,7 +77,7 @@ export class CustomDebugRuntime {
      */
     public async run(threadId?: number) {
         if (!this._sourceFile) throw new Error('No sources loaded.');
-        if (!this._languageRuntimeCapabilities.supportsThreads && threadId != CustomDebugSession.threadID) throw new Error('Unexpected thread ID.')
+        if (threadId && !this._languageRuntimeCapabilities.supportsThreads && threadId != CustomDebugSession.threadID) throw new Error('Unexpected thread ID.')
 
         while (!this._isExecutionDone) {
             if (!this.noDebug) {
@@ -114,17 +125,19 @@ export class CustomDebugRuntime {
     public async nextStep(threadId?: number) {
         if (!this._sourceFile) throw new Error('No sources loaded.');
         if (this._isExecutionDone) throw new Error('Execution is already done.');
-        if (!this._languageRuntimeCapabilities.supportsThreads && threadId != CustomDebugSession.threadID) throw new Error('Unexpected thread ID.')
+        if (threadId && !this._languageRuntimeCapabilities.supportsThreads && threadId != CustomDebugSession.threadID) throw new Error('Unexpected thread ID.')
 
         const args: StepArguments = {
             sourceFile: this._sourceFile
         };
 
         if (threadId) args.threadId = threadId;
+        if (this._stepManager.enabledStep) args.stepId = this._stepManager.enabledStep.id;
 
         const stepResponse: StepResponse = await this.lrProxy.nextStep(args);
         this._isExecutionDone = stepResponse.isExecutionDone;
         await this.updateRuntimeState();
+        await this.refreshAvailableSteps();
     }
 
     /**
@@ -170,6 +183,37 @@ export class CustomDebugRuntime {
         this.variableHandler.updateRuntime(getRuntimeStateResponse.runtimeStateRoot);
     }
 
+    public enableSteppingMode(steppingModeId: any) {
+        this._stepManager.enableSteppingMode(steppingModeId);
+    }
+
+    public getAvailableSteppingModes(): SteppingMode[] {
+        return this._stepManager.availableSteppingModes.map(mode => {
+            return {
+                id: mode.id,
+                name: mode.name,
+                description: mode.description,
+                isEnabled: (this._stepManager.enableSteppingMode != undefined) && (this._stepManager.enabledSteppingMode?.id == mode.id)
+            };
+        });
+    }
+
+    // TODO: handle stepIn / stepOut
+    public async getAvailableSteps(): Promise<Step[]> {
+        return this._stepManager.availableSteps.map(step => {
+            return {
+                id: step.id,
+                name: step.name,
+                description: step.description ? step.description : '',
+                isEnabled: this._stepManager.enabledStep === step
+            };
+        });
+    }
+
+    public enableStep(stepId?: string) {
+        this._stepManager.enableStep(stepId);
+    }
+
     public get sourceFile(): string {
         return this._sourceFile;
     }
@@ -188,5 +232,21 @@ export class CustomDebugRuntime {
 
     public get capabilities(): LanguageRuntimeCapabilities {
         return this._languageRuntimeCapabilities;
+    }
+
+    public get isInitDone(): boolean {
+        return this._isInitDone;
+    }
+
+    private async refreshAvailableSteps(): Promise<void> {
+        let stepsArgs: GetAvailableStepsArguments = {
+            sourceFile: this._sourceFile,
+            steppingModeId: this._stepManager.enabledSteppingModeId
+        }
+
+        //if (this._stepManager.chosenStep) args.compositeStepId = this._stepManager.chosenStep.id;
+
+        const response = await this.lrProxy.getAvailableSteps(stepsArgs);
+        this._stepManager.availableSteps = response.availableSteps;
     }
 }
