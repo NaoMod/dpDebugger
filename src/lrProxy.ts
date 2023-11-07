@@ -74,13 +74,14 @@ export class LanguageRuntimeProxy extends Proxy {
     }
 
     /**
-     * Asks the language runtime to perform the next execution step in the runtime state associated to a given source file.
+     * Asks the language runtime to perform an execution step in the runtime state associated to a given source file.
+     * The possible steps are ecposed by the language runtime through the {@link getAvailableSteps} service.
      * 
      * @param args The arguments of the request.
      * @returns The LRP response to the request.
      */
-    public async nextStep(args: StepArguments): Promise<StepResponse> {
-        return this.request('nextStep', [args]);
+    public async executeStep(args: StepArguments): Promise<StepResponse> {
+        return this.request('executeStep', [args]);
     }
 
     /**

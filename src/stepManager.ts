@@ -5,11 +5,12 @@ export class StepManager {
     private _enabledSteppingMode?: SteppingMode;
     private _enabledStep?: Step;
 
-    public availableSteps: Step[];
+    public availableSteps?: Step[];
     
     constructor(private _availableSteppingModes: SteppingMode[]) {
         this._enabledSteppingMode = _availableSteppingModes.length > 0 ? _availableSteppingModes[0] : undefined;
         this._enabledStep = undefined;
+        this.availableSteps = undefined;
     }
 
     public enableSteppingMode(steppingModeId: string): void {
@@ -21,7 +22,12 @@ export class StepManager {
     }
 
     public enableStep(stepId?: string) {
-        this._enabledStep = this.availableSteps.find(step => step.id === stepId);
+        this._enabledStep = this.availableSteps?.find(step => step.id === stepId);
+    }
+
+    public invalidateAvailableSteps(): void {
+        this.availableSteps = undefined;
+        this._enabledStep = undefined;
     }
 
     public get enabledSteppingModeId(): string {

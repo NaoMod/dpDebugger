@@ -11,9 +11,8 @@ export const RUNTIME_STATE_ROOT_VARIABLES_REFERENCE: number = 2;
  * {@link https://microsoft.github.io/debug-adapter-protocol/specification#Types_Variable}.
  */
 export class VariableHandler {
-
     private astRoot: ModelElement;
-    private runtimeStateRoot: ModelElement;
+    private runtimeStateRoot?: ModelElement;
 
     private idToAstElement: Map<string, ModelElement>;
     private idToRuntimeStateElement: Map<string, ModelElement>;
@@ -22,20 +21,17 @@ export class VariableHandler {
 
     private currentReference: number;
 
-    constructor(astRoot: ModelElement, runtimeStateRoot: ModelElement) {
+    constructor(astRoot: ModelElement) {
         this.astRoot = astRoot;
-        this.runtimeStateRoot = runtimeStateRoot;
+        this.runtimeStateRoot = undefined;
 
         this.idToAstElement = this.buildRegistry(astRoot);
-        this.idToRuntimeStateElement = this.buildRegistry(runtimeStateRoot);
 
         this.variableReferenceRegistry = new VariableReferenceRegistry();
         this.variableReferenceRegistry.set(astRoot, AST_ROOT_VARIABLES_REFERENCE);
-        this.variableReferenceRegistry.set(runtimeStateRoot, RUNTIME_STATE_ROOT_VARIABLES_REFERENCE);
 
-        this.currentReference = 3;
+        this.currentReference = 2;
     }
-
 
     /**
      * Retrieves the variables associated to a given reference.
@@ -57,6 +53,13 @@ export class VariableHandler {
         if (this.isModelElement(object)) return this.getVariablesForModelElement(object);
 
         throw new Error('Object with variables reference ' + variablesReference + ' is neither an array or a ModelElement.');
+    }
+
+    public invalidateRuntime(): void {
+        this.runtimeStateRoot = undefined;
+        this.variableReferenceRegistry.clear();
+        this.variableReferenceRegistry.set(this.astRoot, AST_ROOT_VARIABLES_REFERENCE);
+        this.currentReference = 2;
     }
 
     /**

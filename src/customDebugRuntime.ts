@@ -1,4 +1,5 @@
-import { Variable } from "@vscode/debugadapter";
+import { StoppedEvent, TerminatedEvent, Variable } from "@vscode/debugadapter";
+import { DebugProtocol } from "@vscode/debugprotocol";
 import { ActivatedBreakpoint, CDAPBreakpointManager } from "./breakpointManager";
 import { CustomDebugSession } from "./customDebugSession";
 import { Step, SteppingMode } from "./DAPExtension";
@@ -51,14 +52,11 @@ export class CustomDebugRuntime {
         const initResponse: InitResponse = await this.lrProxy.initExecution({ sourceFile: sourceFile, ...additionalArgs });
         const getBreakpointTypes: GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
         const getSteppingModesResponse: GetSteppingModesResponse = await this.lrProxy.getSteppingModes();
-        const getRuntimeStateResponse: GetRuntimeStateResponse = await this.lrProxy.getRuntimeState({ sourceFile: sourceFile });
 
         this._breakpointManager = new CDAPBreakpointManager(sourceFile, this.lrProxy, parseResponse.astRoot, getBreakpointTypes.breakpointTypes);
         this._stepManager = new StepManager(getSteppingModesResponse.steppingModes);
-        this.variableHandler = new VariableHandler(parseResponse.astRoot, getRuntimeStateResponse.runtimeStateRoot);
+        this.variableHandler = new VariableHandler(parseResponse.astRoot);
         this._isExecutionDone = initResponse.isExecutionDone;
-
-        if (!this._isExecutionDone) await this.refreshAvailableSteps();
 
         this._isInitDone = true;
     }
@@ -82,17 +80,9 @@ export class CustomDebugRuntime {
         while (!this._isExecutionDone) {
             if (!this.noDebug) {
                 if (await this.checkBreakpoints()) {
-                    // seq and type don't matter, they're changed inside sendEvent()
-                    this.debugSession.sendEvent({
-                        event: 'stopped',
-                        seq: 1,
-                        type: 'event',
-                        body: {
-                            reason: 'breakpoint',
-                            description: this._activatedBreakpoint!.message,
-                            threadId: threadId ? threadId : CustomDebugSession.threadID
-                        }
-                    });
+                    const stoppedEvent: DebugProtocol.StoppedEvent = new StoppedEvent('breakpoint', threadId ? threadId : CustomDebugSession.threadID);
+                    stoppedEvent.body.description = this._activatedBreakpoint!.message
+                    this.debugSession.sendEvent(stoppedEvent);
 
                     return;
                 }
@@ -104,13 +94,10 @@ export class CustomDebugRuntime {
 
             if (threadId) args.threadId = threadId;
 
-            this._isExecutionDone = (await this.lrProxy.nextStep(args)).isExecutionDone;
+            this._isExecutionDone = (await this.lrProxy.executeStep(args)).isExecutionDone;
         }
 
-        // seq and type don't matter, they're changed inside sendEvent()
-        this.debugSession.sendEvent({
-            event: 'terminated', seq: 1, type: 'event'
-        });
+        this.debugSession.sendEvent(new TerminatedEvent());
     }
 
     /**
@@ -134,10 +121,11 @@ export class CustomDebugRuntime {
         if (threadId) args.threadId = threadId;
         if (this._stepManager.enabledStep) args.stepId = this._stepManager.enabledStep.id;
 
-        const stepResponse: StepResponse = await this.lrProxy.nextStep(args);
+        const stepResponse: StepResponse = await this.lrProxy.executeStep(args);
         this._isExecutionDone = stepResponse.isExecutionDone;
-        await this.updateRuntimeState();
-        await this.refreshAvailableSteps();
+
+        this.variableHandler.invalidateRuntime();
+        this._stepManager.invalidateAvailableSteps();
     }
 
     /**
@@ -149,13 +137,7 @@ export class CustomDebugRuntime {
      */
     private async checkBreakpoints(): Promise<boolean> {
         this._activatedBreakpoint = await this._breakpointManager.checkBreakpoints();
-
-        if (this._activatedBreakpoint) {
-            await this.updateRuntimeState();
-            return true;
-        }
-
-        return false;
+        return this._activatedBreakpoint != undefined;
     }
 
     /**
@@ -174,7 +156,7 @@ export class CustomDebugRuntime {
     }
 
     /**
-     * Updates the current runtime state as well as the next step.
+     * Updates the current runtime state.
      * 
      * Should only be called after {@link initExecution} has been called.
      */
@@ -200,12 +182,14 @@ export class CustomDebugRuntime {
 
     // TODO: handle stepIn / stepOut
     public async getAvailableSteps(): Promise<Step[]> {
-        return this._stepManager.availableSteps.map(step => {
+        if (!this._stepManager.availableSteps) await this.updateAvailableSteps();
+
+        return this._stepManager.availableSteps!.map((step, i) => {
             return {
                 id: step.id,
                 name: step.name,
                 description: step.description ? step.description : '',
-                isEnabled: this._stepManager.enabledStep === step
+                isEnabled: this._stepManager.enabledStep ? this._stepManager.enabledStep === step : i == 0
             };
         });
     }
@@ -238,7 +222,7 @@ export class CustomDebugRuntime {
         return this._isInitDone;
     }
 
-    private async refreshAvailableSteps(): Promise<void> {
+    private async updateAvailableSteps(): Promise<void> {
         let stepsArgs: GetAvailableStepsArguments = {
             sourceFile: this._sourceFile,
             steppingModeId: this._stepManager.enabledSteppingModeId

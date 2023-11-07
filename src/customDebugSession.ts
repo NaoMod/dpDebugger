@@ -1,4 +1,4 @@
-import { DebugSession, Response, Scope, Source, StackFrame, Thread } from "@vscode/debugadapter";
+import { DebugSession, InitializedEvent, InvalidatedEvent, Response, Scope, Source, StackFrame, StoppedEvent, TerminatedEvent, Thread } from "@vscode/debugadapter";
 import { DebugProtocol } from "@vscode/debugprotocol";
 import { threadId } from "worker_threads";
 import { CustomDebugRuntime } from "./customDebugRuntime";
@@ -152,10 +152,7 @@ export class CustomDebugSession extends DebugSession {
         response.body.supportsExceptionFilterOptions = false;
 
         this.sendResponse(response);
-        this.sendEvent({
-            event: 'initialized', seq: 1, type: 'event'
-        });
-
+        this.sendEvent(new InitializedEvent());
         this.isInitialized = true;
     }
 
@@ -214,6 +211,8 @@ export class CustomDebugSession extends DebugSession {
             };
         }
 
+        this.runtime.updateRuntimeState();
+
         this.sendResponse(response);
     }
 
@@ -236,16 +235,8 @@ export class CustomDebugSession extends DebugSession {
 
         this.sendResponse(response);
 
-        if (args.pauseOnStart) {
-            // seq and type don't matter, they're changed inside sendEvent()
-            this.sendEvent({
-                event: 'stopped', seq: 1, type: 'event', body: {
-                    reason: 'entry',
-                    threadId: CustomDebugSession.threadID,
-                    allThreadsStopped: true
-                }
-            });
-        }
+        if (args.pauseOnStart)
+            this.sendEvent(new StoppedEvent('stopped', this.runtime.capabilities.supportsThreads ? undefined : CustomDebugSession.threadID));
     }
 
     /**
@@ -456,7 +447,7 @@ export class CustomDebugSession extends DebugSession {
         while (!this.runtime.isInitDone) await new Promise<void>(resolve => setTimeout(() => {
             resolve()
         }, 200));
-        
+
         switch (command) {
             case 'getBreakpointTypes':
                 const res: GetBreakpointTypesResponse = {
@@ -483,16 +474,7 @@ export class CustomDebugSession extends DebugSession {
 
             case 'enableSteppingMode':
                 this.runtime.enableSteppingMode(args.steppingModeId);
-
-                // seq and type don't matter, they're changed inside sendEvent()
-                this.sendEvent({
-                    event: 'invalidated',
-                    seq: 1,
-                    type: 'event',
-                    body: {
-                        areas: ['variables']
-                    }
-                });
+                this.sendEvent(new InvalidatedEvent(['variables']));
 
                 break;
 
@@ -531,22 +513,12 @@ export class CustomDebugSession extends DebugSession {
      */
     private async performStepAction(stepFunction: () => Promise<void>, threadId?: number): Promise<void> {
         if (this.runtime.isExecutionDone) {
-            // seq and type don't matter, they're changed inside sendEvent()
-            this.sendEvent({
-                event: 'terminated', seq: 1, type: 'event'
-            });
-
+            this.sendEvent(new TerminatedEvent());
             return;
         }
 
         await stepFunction.call(this.runtime, threadId);
 
-        // seq and type don't matter, they're changed inside sendEvent()
-        this.sendEvent({
-            event: 'stopped', seq: 1, type: 'event', body: {
-                reason: 'step',
-                threadId: threadId ? threadId : CustomDebugSession.threadID
-            }
-        });
+        this.sendEvent(new StoppedEvent('step', threadId ? threadId : CustomDebugSession.threadID));
     }
 }
