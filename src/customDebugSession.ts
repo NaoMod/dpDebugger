@@ -391,8 +391,8 @@ export class CustomDebugSession extends DebugSession {
                 source: new Source(this.runtime.sourceFile),
                 line: location ? location.line : 0,
                 column: location ? location.column : 0,
-                endLine: location ? location.endLine : 0,
-                endColumn: location ? location.endColumn : 0
+                endLine: location ? location.endLine : undefined,
+                endColumn: location ? location.endColumn : undefined
             };
 
             response.body = {

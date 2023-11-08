@@ -122,6 +122,7 @@ export class CustomDebugRuntime {
         if (this._stepManager.enabledStep) args.stepId = this._stepManager.enabledStep.id;
 
         const stepResponse: StepResponse = await this.lrProxy.executeStep(args);
+        this._activatedBreakpoint = undefined;
         this._isExecutionDone = stepResponse.isExecutionDone;
 
         this.variableHandler.invalidateRuntime();
