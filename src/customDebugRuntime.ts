@@ -140,6 +140,16 @@ export class CustomDebugRuntime {
         this.variableHandler.invalidateRuntime();
     }
 
+    public async stepIn(threadId?: number) {
+        const enabledStep: LRP.Step = this._stepManager.enabledStep;
+        if (!enabledStep.isComposite) {
+            this.nextStep(threadId);
+            return;
+        }
+
+        await this.updateAvailableSteps(enabledStep.id);
+    }
+
     /**
      * Checks whether a domain-specific breakpoint is activated on the current runtime state.
      * 
@@ -177,7 +187,7 @@ export class CustomDebugRuntime {
         this.variableHandler.updateRuntime(getRuntimeStateResponse.runtimeStateRoot);
     }
 
-    public enableSteppingMode(steppingModeId: any) {
+    public enableSteppingMode(steppingModeId: string) {
         this._stepManager.enableSteppingMode(steppingModeId);
     }
 
@@ -236,13 +246,16 @@ export class CustomDebugRuntime {
         return this._isInitDone;
     }
 
-    public async updateAvailableSteps(): Promise<void> {
-        let stepsArgs: LRP.GetAvailableStepsArguments = {
+    public async updateAvailableSteps(stepId?: string): Promise<void> {
+        const stepsArgs: LRP.GetAvailableStepsArguments = {
             sourceFile: this._sourceFile,
             steppingModeId: this._stepManager.enabledSteppingModeId
         }
 
+        if (stepId) stepsArgs.compositeStepId = stepId;
+
         const response = await this.lrProxy.getAvailableSteps(stepsArgs);
         this._stepManager.availableSteps = response.availableSteps;
+        this._stepManager.enableStep();
     }
 }

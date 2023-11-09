@@ -356,7 +356,7 @@ export class CustomDebugSession extends DebugSession {
     protected async stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
         this.sendResponse(response);
 
-        await this.performStepAction(this.runtime.nextStep, args.singleThread ? args.threadId : undefined);
+        await this.performStepAction(this.runtime.stepIn, args.singleThread ? args.threadId : undefined);
     }
 
     /**
@@ -387,7 +387,7 @@ export class CustomDebugSession extends DebugSession {
             response.body = (await this.runtime.lrProxy.stackTrace(args)).body;
         } else {
             let location: LRP.Location | undefined = this.runtime.activatedBreakpoint?.location;
-            if (!location) location = await this.runtime.getCurrentLocation();
+            if (!location) location = this.runtime.getCurrentLocation();
 
             const stackFrame: StackFrame = {
                 id: 0,
@@ -478,7 +478,6 @@ export class CustomDebugSession extends DebugSession {
 
             case 'enableSteppingMode':
                 this.runtime.enableSteppingMode(args.steppingModeId);
-                this.sendEvent(new InvalidatedEvent(['variables']));
 
                 break;
 
@@ -493,6 +492,7 @@ export class CustomDebugSession extends DebugSession {
 
             case 'enableStep':
                 this.runtime.enableStep(args ? args.stepId : undefined);
+                this.sendEvent(new InvalidatedEvent(['stacks']));
 
                 break;
 
