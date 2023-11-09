@@ -1,9 +1,8 @@
 
 import { DebugProtocol } from "@vscode/debugprotocol";
-import { BreakpointType, CheckBreakpointResponse, Location, ModelElement } from "./lrp";
-import { LanguageRuntimeProxy } from "./lrProxy";
-
 import * as DAPExtension from "./DAPExtension";
+import { LanguageRuntimeProxy } from "./lrProxy";
+import * as LRP from "./lrp";
 
 /**
  * Manages breakpoints set through cDAP.
@@ -12,15 +11,15 @@ export class CDAPBreakpointManager {
 
     private astElementRegistry: ASTElementRegistry;
 
-    readonly _availableBreakpointTypes: BreakpointType[];
-    private enabledBreakpointTypes: Map<string, BreakpointType[]>;
-    private elementsWithBreakpoints: Set<ModelElement>;
-    private activatedBreakpoints: Set<ModelElement>;
+    readonly _availableBreakpointTypes: LRP.BreakpointType[];
+    private enabledBreakpointTypes: Map<string, LRP.BreakpointType[]>;
+    private elementsWithBreakpoints: Set<LRP.ModelElement>;
+    private activatedBreakpoints: Set<LRP.ModelElement>;
 
     private lineOffset: number;
     private columnOffset: number;
 
-    constructor(private sourceFile: string, private lrProxy: LanguageRuntimeProxy, astRoot: ModelElement, availableBreakpointTypes: BreakpointType[]) {
+    constructor(private sourceFile: string, private lrProxy: LanguageRuntimeProxy, astRoot: LRP.ModelElement, availableBreakpointTypes: LRP.BreakpointType[]) {
         this.elementsWithBreakpoints = new Set();
         this.astElementRegistry = new ASTElementRegistry(astRoot);
         this.activatedBreakpoints = new Set();
@@ -51,11 +50,11 @@ export class CDAPBreakpointManager {
         for (const element of this.elementsWithBreakpoints) {
             if (this.activatedBreakpoints.has(element)) continue;
 
-            const breakpointTypes: BreakpointType[] | undefined = this.enabledBreakpointTypes.get(element.type);
+            const breakpointTypes: LRP.BreakpointType[] | undefined = this.enabledBreakpointTypes.get(element.type);
             if (!breakpointTypes) continue;
 
             for (const breakpointType of breakpointTypes) {
-                const checkBreakpointResponse: CheckBreakpointResponse = await this.lrProxy.checkBreakpoint({
+                const checkBreakpointResponse: LRP.CheckBreakpointResponse = await this.lrProxy.checkBreakpoint({
                     sourceFile: this.sourceFile,
                     typeId: breakpointType.id,
                     elementId: element.id
@@ -98,7 +97,7 @@ export class CDAPBreakpointManager {
                 continue;
             }
 
-            const element: ModelElement | undefined = this.astElementRegistry.getElementFromPosition(newBreakpoint.line + this.lineOffset, newBreakpoint.column + this.columnOffset);
+            const element: LRP.ModelElement | undefined = this.astElementRegistry.getElementFromPosition(newBreakpoint.line + this.lineOffset, newBreakpoint.column + this.columnOffset);
             if (!element) {
                 setBreakpoints.push({ verified: false });
                 continue;
@@ -153,7 +152,7 @@ export class CDAPBreakpointManager {
         this.enabledBreakpointTypes.clear();
 
         for (const breakpointTypeId of breakpointTypeIds) {
-            const breakpointType: BreakpointType | undefined = this._availableBreakpointTypes.find(breakpointType => breakpointType.id == breakpointTypeId);
+            const breakpointType: LRP.BreakpointType | undefined = this._availableBreakpointTypes.find(breakpointType => breakpointType.id == breakpointTypeId);
 
             if (!breakpointType) continue;
 
@@ -184,8 +183,8 @@ export class CDAPBreakpointManager {
      * @param breakpointType The breakpoint type to check for.
      * @returns True if the breakpoint type is currently enabled, false otherwise.
      */
-    private isBreakpointTypeEnabled(breakpointType: BreakpointType): boolean {
-        const enabledBreakpointTypesForTargetType: BreakpointType[] | undefined = this.enabledBreakpointTypes.get(breakpointType.parameters[0].objectType!);
+    private isBreakpointTypeEnabled(breakpointType: LRP.BreakpointType): boolean {
+        const enabledBreakpointTypesForTargetType: LRP.BreakpointType[] | undefined = this.enabledBreakpointTypes.get(breakpointType.parameters[0].objectType!);
         return enabledBreakpointTypesForTargetType !== undefined && enabledBreakpointTypesForTargetType.includes(breakpointType);
     }
 }
@@ -198,18 +197,18 @@ export interface ActivatedBreakpoint {
     message: string;
 
     /** Location of the model element on which the activated breakpoint is attached. */
-    location: Location;
+    location: LRP.Location;
 }
 
 /**
  * Allows the quick retrieval of model elements.
  */
 export class ASTElementRegistry {
-    private elements: Map<string, ModelElement>;
+    private elements: Map<string, LRP.ModelElement>;
     private parents: Map<string, string>; // child -> parent
-    private locations: Map<number, ModelElement[]>; // line -> element[]
+    private locations: Map<number, LRP.ModelElement[]>; // line -> element[]
 
-    constructor(astRoot: ModelElement) {
+    constructor(astRoot: LRP.ModelElement) {
         this.elements = new Map();
         this.parents = new Map();
         this.locations = new Map();
@@ -232,7 +231,7 @@ export class ASTElementRegistry {
      * @param elemenId The ID of the model element to retrieve.
      * @returns The model element.
      */
-    public getElement(elemenId: string): ModelElement | undefined {
+    public getElement(elemenId: string): LRP.ModelElement | undefined {
         return this.elements.get(elemenId);
     }
 
@@ -243,12 +242,12 @@ export class ASTElementRegistry {
      * @param column The column of the element in the source file.
      * @returns The model element at the given position, or undefined if there is none. 
      */
-    public getElementFromPosition(line: number, column: number): ModelElement | undefined {
+    public getElementFromPosition(line: number, column: number): LRP.ModelElement | undefined {
         for (let i = line; i >= 0; i--) {
-            const lineElements: ModelElement[] | undefined = this.locations.get(i);
+            const lineElements: LRP.ModelElement[] | undefined = this.locations.get(i);
             if (!lineElements) continue;
 
-            const elem: ModelElement | undefined = lineElements.find(elem => this.isPositionContained(elem, line, column));
+            const elem: LRP.ModelElement | undefined = lineElements.find(elem => this.isPositionContained(elem, line, column));
             if (elem) return elem;
         }
 
@@ -260,7 +259,7 @@ export class ASTElementRegistry {
      * 
      * @param element The element to register.
      */
-    private registerElement(element: ModelElement) {
+    private registerElement(element: LRP.ModelElement) {
         this.elements.set(element.id, element);
 
         if (element.location) {
@@ -289,7 +288,7 @@ export class ASTElementRegistry {
      * @param column THe column of the position.
      * @returns True if the position is contained, false otherwise.
      */
-    private isPositionContained(element: ModelElement, line: number, column: number): boolean {
+    private isPositionContained(element: LRP.ModelElement, line: number, column: number): boolean {
         if (element.location!.line == line)
             return element.location!.endLine == line ? element.location!.column <= column && element.location!.endColumn >= column : element.location!.column <= column;
 

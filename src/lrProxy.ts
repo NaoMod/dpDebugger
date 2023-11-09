@@ -1,6 +1,6 @@
-import { Client, RequestParamsLike } from "jayson";
-import { CheckBreakpointArguments, CheckBreakpointResponse, GetAvailableStepsArguments, GetAvailableStepsResponse, GetBreakpointTypesResponse, GetCurrentLocationResponse, GetRuntimeStateArguments, GetRuntimeStateResponse, GetSteppingModesResponse, InitArguments, InitializeResponse, InitResponse, ParseArguments, ParseResponse, StepArguments, StepResponse } from "./lrp";
 import { DebugProtocol } from "@vscode/debugprotocol";
+import { Client, RequestParamsLike } from "jayson";
+import * as LRP from "./lrp";
 
 /**
  * Proxy for a JSON-RPC server.
@@ -47,17 +47,17 @@ class Proxy {
  * Proxy for a language runtime implementing LRP.
  */
 export class LanguageRuntimeProxy extends Proxy {
-    public async initialize(): Promise<InitializeResponse> {
+    public async initialize(): Promise<LRP.InitializeResponse> {
         return this.request('initialize', []);
     }
-    
+
     /**
      * Asks the language runtime to parse a program and store its AST.
      * 
      * @param args The arguments of the request.
      * @returns The LRP response to the request.
      */
-    public async parse(args: ParseArguments): Promise<ParseResponse> {
+    public async parse(args: LRP.ParseArguments): Promise<LRP.ParseResponse> {
         return this.request('parse', [args]);
     }
 
@@ -68,7 +68,7 @@ export class LanguageRuntimeProxy extends Proxy {
      * @param args The arguments of the request.
      * @returns The LRP response to the request.
      */
-    public async initExecution(args: InitArguments): Promise<InitResponse> {
+    public async initExecution(args: LRP.InitArguments): Promise<LRP.InitResponse> {
         return this.request('initExecution', [args]);
     }
 
@@ -79,7 +79,7 @@ export class LanguageRuntimeProxy extends Proxy {
      * @param args The arguments of the request.
      * @returns The LRP response to the request.
      */
-    public async executeStep(args: StepArguments): Promise<StepResponse> {
+    public async executeStep(args: LRP.StepArguments): Promise<LRP.StepResponse> {
         return this.request('executeStep', [args]);
     }
 
@@ -89,7 +89,7 @@ export class LanguageRuntimeProxy extends Proxy {
      * @param args The arguments of the request.
      * @returns The LRP response to the request.
      */
-    public async getRuntimeState(args: GetRuntimeStateArguments): Promise<GetRuntimeStateResponse> {
+    public async getRuntimeState(args: LRP.GetRuntimeStateArguments): Promise<LRP.GetRuntimeStateResponse> {
         return this.request('getRuntimeState', [args]);
     }
 
@@ -98,7 +98,7 @@ export class LanguageRuntimeProxy extends Proxy {
      * 
      * @returns The LRP response to the request.
      */
-    public async getBreakpointTypes(): Promise<GetBreakpointTypesResponse> {
+    public async getBreakpointTypes(): Promise<LRP.GetBreakpointTypesResponse> {
         return this.request('getBreakpointTypes', []);
     }
 
@@ -108,15 +108,15 @@ export class LanguageRuntimeProxy extends Proxy {
      * @param args The arguments of the request.
      * @returns The LRP response to the request.
      */
-    public async checkBreakpoint(args: CheckBreakpointArguments): Promise<CheckBreakpointResponse> {
+    public async checkBreakpoint(args: LRP.CheckBreakpointArguments): Promise<LRP.CheckBreakpointResponse> {
         return this.request('checkBreakpoint', [args]);
     }
 
-    public async getSteppingModes(): Promise<GetSteppingModesResponse> {
+    public async getSteppingModes(): Promise<LRP.GetSteppingModesResponse> {
         return this.request('getSteppingModes', []);
     }
 
-    public async getAvailableSteps(args: GetAvailableStepsArguments): Promise<GetAvailableStepsResponse> {
+    public async getAvailableSteps(args: LRP.GetAvailableStepsArguments): Promise<LRP.GetAvailableStepsResponse> {
         return this.request('getAvailableSteps', [args]);
     }
 

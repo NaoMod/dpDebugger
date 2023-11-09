@@ -1,9 +1,9 @@
 import { DebugSession, InitializedEvent, InvalidatedEvent, Response, Scope, Source, StackFrame, StoppedEvent, TerminatedEvent, Thread } from "@vscode/debugadapter";
 import { DebugProtocol } from "@vscode/debugprotocol";
 import { threadId } from "worker_threads";
+import * as DAPExtension from "./DAPExtension";
 import { CustomDebugRuntime } from "./customDebugRuntime";
-import { GetAvailableStepsResponse, GetBreakpointTypesResponse, GetSteppingModesResponse } from "./DAPExtension";
-import { Location } from "./lrp";
+import * as LRP from "./lrp";
 import { AST_ROOT_VARIABLES_REFERENCE, RUNTIME_STATE_ROOT_VARIABLES_REFERENCE } from "./variableHandler";
 
 
@@ -386,7 +386,7 @@ export class CustomDebugSession extends DebugSession {
         if (this.runtime.capabilities.supportsStackTrace) {
             response.body = (await this.runtime.lrProxy.stackTrace(args)).body;
         } else {
-            let location: Location | undefined = this.runtime.activatedBreakpoint?.location;
+            let location: LRP.Location | undefined = this.runtime.activatedBreakpoint?.location;
             if (!location) location = await this.runtime.getCurrentLocation();
 
             const stackFrame: StackFrame = {
@@ -454,7 +454,7 @@ export class CustomDebugSession extends DebugSession {
 
         switch (command) {
             case 'getBreakpointTypes':
-                const res: GetBreakpointTypesResponse = {
+                const res: DAPExtension.GetBreakpointTypesResponse = {
                     breakpointTypes: this.runtime.breakpointManager.availableBreakpointTypes
                 };
 
@@ -468,7 +468,7 @@ export class CustomDebugSession extends DebugSession {
                 break;
 
             case 'getSteppingModes':
-                const steppingModeBody: GetSteppingModesResponse = {
+                const steppingModeBody: DAPExtension.GetSteppingModesResponse = {
                     steppingModes: this.runtime.getAvailableSteppingModes()
                 };
 
@@ -483,7 +483,7 @@ export class CustomDebugSession extends DebugSession {
                 break;
 
             case 'getAvailableSteps':
-                const availableStepsBody: GetAvailableStepsResponse = {
+                const availableStepsBody: DAPExtension.GetAvailableStepsResponse = {
                     availableSteps: await this.runtime.getAvailableSteps()
                 };
 
@@ -517,8 +517,7 @@ export class CustomDebugSession extends DebugSession {
     /**
      * Performs a step action and sends a stopped or terminated event based on the result of the action.
      * 
-     * @param stepFunction The step function , i.e. {@link CustomDebugRuntime.nextStep}, 
-     * {@link CustomDebugRuntime.stepInto} or {@link CustomDebugRuntime.stepOut}.
+     * @param stepFunction The step function , i.e. {@link CustomDebugRuntime.nextStep}
      */
     private async performStepAction(stepFunction: () => Promise<void>, threadId?: number): Promise<void> {
         if (this.runtime.isExecutionDone) {

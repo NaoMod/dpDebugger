@@ -1,10 +1,10 @@
 import { StoppedEvent, TerminatedEvent, Variable } from "@vscode/debugadapter";
 import { DebugProtocol } from "@vscode/debugprotocol";
+import * as DAPExtension from "./DAPExtension";
 import { ActivatedBreakpoint, CDAPBreakpointManager } from "./breakpointManager";
 import { CustomDebugSession } from "./customDebugSession";
-import { Step, SteppingMode } from "./DAPExtension";
-import { GetAvailableStepsArguments, GetBreakpointTypesResponse, GetRuntimeStateResponse, GetSteppingModesResponse, InitResponse, LanguageRuntimeCapabilities, Location, ParseResponse, StepArguments, StepResponse } from "./lrp";
 import { LanguageRuntimeProxy } from "./lrProxy";
+import * as LRP from "./lrp";
 import { StepManager } from "./stepManager";
 import { VariableHandler } from "./variableHandler";
 
@@ -25,7 +25,7 @@ export class CustomDebugRuntime {
 
     private _activatedBreakpoint: ActivatedBreakpoint | undefined;
 
-    private _languageRuntimeCapabilities: LanguageRuntimeCapabilities;
+    private _languageRuntimeCapabilities: LRP.LanguageRuntimeCapabilities;
 
     private _isInitDone: boolean;
 
@@ -48,10 +48,10 @@ export class CustomDebugRuntime {
         this.noDebug = noDebug;
         this._languageRuntimeCapabilities = (await this.lrProxy.initialize()).capabilities;
 
-        const parseResponse: ParseResponse = await this.lrProxy.parse({ sourceFile: sourceFile });
-        const initResponse: InitResponse = await this.lrProxy.initExecution({ sourceFile: sourceFile, ...additionalArgs });
-        const getBreakpointTypes: GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
-        const getSteppingModesResponse: GetSteppingModesResponse = await this.lrProxy.getSteppingModes();
+        const parseResponse: LRP.ParseResponse = await this.lrProxy.parse({ sourceFile: sourceFile });
+        const initResponse: LRP.InitResponse = await this.lrProxy.initExecution({ sourceFile: sourceFile, ...additionalArgs });
+        const getBreakpointTypes: LRP.GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
+        const getSteppingModesResponse: LRP.GetSteppingModesResponse = await this.lrProxy.getSteppingModes();
 
         this._breakpointManager = new CDAPBreakpointManager(sourceFile, this.lrProxy, parseResponse.astRoot, getBreakpointTypes.breakpointTypes);
         this._stepManager = new StepManager(getSteppingModesResponse.steppingModes);
@@ -91,7 +91,7 @@ export class CustomDebugRuntime {
                 }
             }
 
-            const args: StepArguments = {
+            const args: LRP.StepArguments = {
                 sourceFile: this._sourceFile
             };
 
@@ -126,19 +126,18 @@ export class CustomDebugRuntime {
         if (this._isExecutionDone) throw new Error('Execution is already done.');
         if (threadId && !this._languageRuntimeCapabilities.supportsThreads && threadId != CustomDebugSession.threadID) throw new Error('Unexpected thread ID.')
 
-        const args: StepArguments = {
+        const args: LRP.StepArguments = {
             sourceFile: this._sourceFile
         };
 
         if (threadId) args.threadId = threadId;
         if (this._stepManager.enabledStep) args.stepId = this._stepManager.enabledStep.id;
 
-        const stepResponse: StepResponse = await this.lrProxy.executeStep(args);
+        const stepResponse: LRP.StepResponse = await this.lrProxy.executeStep(args);
         this._activatedBreakpoint = undefined;
         this._isExecutionDone = stepResponse.isExecutionDone;
 
         this.variableHandler.invalidateRuntime();
-        this._stepManager.invalidateAvailableSteps();
     }
 
     /**
@@ -174,7 +173,7 @@ export class CustomDebugRuntime {
      * Should only be called after {@link initExecution} has been called.
      */
     public async updateRuntimeState(): Promise<void> {
-        const getRuntimeStateResponse: GetRuntimeStateResponse = await this.lrProxy.getRuntimeState({ sourceFile: this._sourceFile });
+        const getRuntimeStateResponse: LRP.GetRuntimeStateResponse = await this.lrProxy.getRuntimeState({ sourceFile: this._sourceFile });
         this.variableHandler.updateRuntime(getRuntimeStateResponse.runtimeStateRoot);
     }
 
@@ -182,19 +181,19 @@ export class CustomDebugRuntime {
         this._stepManager.enableSteppingMode(steppingModeId);
     }
 
-    public getAvailableSteppingModes(): SteppingMode[] {
+    public getAvailableSteppingModes(): DAPExtension.SteppingMode[] {
         return this._stepManager.availableSteppingModes.map(mode => {
             return {
                 id: mode.id,
                 name: mode.name,
                 description: mode.description,
-                isEnabled: (this._stepManager.enableSteppingMode != undefined) && (this._stepManager.enabledSteppingMode?.id == mode.id)
+                isEnabled: (this._stepManager.enabledSteppingMode != undefined) && (this._stepManager.enabledSteppingMode?.id == mode.id)
             };
         });
     }
 
     // TODO: handle stepIn / stepOut
-    public async getAvailableSteps(): Promise<Step[]> {
+    public async getAvailableSteps(): Promise<DAPExtension.Step[]> {
         return this._stepManager.availableSteps!.map((step, i) => {
             return {
                 id: step.id,
@@ -209,7 +208,7 @@ export class CustomDebugRuntime {
         this._stepManager.enableStep(stepId);
     }
 
-    public getCurrentLocation(): Location | undefined {
+    public getCurrentLocation(): LRP.Location | undefined {
         return this._stepManager.enabledStep.location;
     }
 
@@ -229,7 +228,7 @@ export class CustomDebugRuntime {
         return this._activatedBreakpoint;
     }
 
-    public get capabilities(): LanguageRuntimeCapabilities {
+    public get capabilities(): LRP.LanguageRuntimeCapabilities {
         return this._languageRuntimeCapabilities;
     }
 
@@ -238,7 +237,7 @@ export class CustomDebugRuntime {
     }
 
     public async updateAvailableSteps(): Promise<void> {
-        let stepsArgs: GetAvailableStepsArguments = {
+        let stepsArgs: LRP.GetAvailableStepsArguments = {
             sourceFile: this._sourceFile,
             steppingModeId: this._stepManager.enabledSteppingModeId
         }

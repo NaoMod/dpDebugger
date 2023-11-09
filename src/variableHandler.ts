@@ -1,5 +1,5 @@
 import { Variable } from "@vscode/debugadapter";
-import { ModelElement } from "./lrp";
+import * as LRP from "./lrp";
 
 export const AST_ROOT_VARIABLES_REFERENCE: number = 1;
 export const RUNTIME_STATE_ROOT_VARIABLES_REFERENCE: number = 2;
@@ -11,17 +11,17 @@ export const RUNTIME_STATE_ROOT_VARIABLES_REFERENCE: number = 2;
  * {@link https://microsoft.github.io/debug-adapter-protocol/specification#Types_Variable}.
  */
 export class VariableHandler {
-    private astRoot: ModelElement;
-    private runtimeStateRoot?: ModelElement;
+    private astRoot: LRP.ModelElement;
+    private runtimeStateRoot?: LRP.ModelElement;
 
-    private idToAstElement: Map<string, ModelElement>;
-    private idToRuntimeStateElement: Map<string, ModelElement>;
+    private idToAstElement: Map<string, LRP.ModelElement>;
+    private idToRuntimeStateElement: Map<string, LRP.ModelElement>;
 
     private variableReferenceRegistry: VariableReferenceRegistry;
 
     private currentReference: number;
 
-    constructor(astRoot: ModelElement) {
+    constructor(astRoot: LRP.ModelElement) {
         this.astRoot = astRoot;
         this.runtimeStateRoot = undefined;
 
@@ -67,7 +67,7 @@ export class VariableHandler {
      * 
      * @param runtimeStateRoot The new runtime state.
      */
-    public updateRuntime(runtimeStateRoot: ModelElement): void {
+    public updateRuntime(runtimeStateRoot: LRP.ModelElement): void {
         this.runtimeStateRoot = runtimeStateRoot;
 
         this.idToRuntimeStateElement = this.buildRegistry(runtimeStateRoot);
@@ -85,7 +85,7 @@ export class VariableHandler {
      * @param element The model element for which to retrieve variables.
      * @returns The variables corresponding to the attributes, references and children of the model element.
      */
-    private getVariablesForModelElement(element: ModelElement): Variable[] {
+    private getVariablesForModelElement(element: LRP.ModelElement): Variable[] {
         const variables: Variable[] = [];
 
         for (const attribute of Object.entries(element.attributes)) {
@@ -126,8 +126,8 @@ export class VariableHandler {
      * root will be added to the registry.
      * @returns The registry built from the model root.
      */
-    private buildRegistry(modelRoot: ModelElement): Map<string, ModelElement> {
-        const res: Map<string, ModelElement> = new Map();
+    private buildRegistry(modelRoot: LRP.ModelElement): Map<string, LRP.ModelElement> {
+        const res: Map<string, LRP.ModelElement> = new Map();
         this.addElements(modelRoot, res);
 
         return res;
@@ -139,9 +139,9 @@ export class VariableHandler {
      * @param currentElement The model element to add to the registry.
      * @param registry The registry of model elements.
      */
-    private addElements(currentElement: ModelElement, registry: Map<string, ModelElement>): void {
+    private addElements(currentElement: LRP.ModelElement, registry: Map<string, LRP.ModelElement>): void {
         if (currentElement === null) return;
-        
+
         registry.set(currentElement.id, currentElement);
 
         for (const child of Object.values(currentElement.children)) {
@@ -189,7 +189,7 @@ export class VariableHandler {
             return new Variable(name, 'Array[' + ref.length + ']', this.getReference(ref), ref.length);
         }
 
-        let referencedObject: ModelElement | undefined = this.idToAstElement.get(ref);
+        let referencedObject: LRP.ModelElement | undefined = this.idToAstElement.get(ref);
         if (referencedObject === undefined) referencedObject = this.idToRuntimeStateElement.get(ref);
         if (referencedObject === undefined) throw new Error('Reference ' + ref + ' is invalid.');
 
@@ -220,13 +220,13 @@ export class VariableHandler {
      * @param object The object to check.
      * @returns True if the object is a model element, false otherwise.
      */
-    private isModelElement(object: any): object is ModelElement {
+    private isModelElement(object: any): object is LRP.ModelElement {
         // best way to go through keys of ModelElement interface since the keyof keyword is not available
         // will break when ModelElement is changed
-        class ModelElementImpl implements ModelElement {
+        class ModelElementImpl implements LRP.ModelElement {
             id: string;
             type: string;
-            children: { [key: string]: ModelElement | ModelElement[]; };
+            children: { [key: string]: LRP.ModelElement | LRP.ModelElement[]; };
             refs: { [key: string]: string | string[]; };
             attributes: { [key: string]: any; };
         }
