@@ -1,5 +1,5 @@
 import { Client, RequestParamsLike } from "jayson";
-import { CheckBreakpointArguments, CheckBreakpointResponse, GetAvailableStepsArguments, GetAvailableStepsResponse, GetBreakpointTypesResponse, GetRuntimeStateArguments, GetRuntimeStateResponse, GetSteppingModesResponse, InitArguments, InitializeResponse, InitResponse, ParseArguments, ParseResponse, StepArguments, StepResponse } from "./lrp";
+import { CheckBreakpointArguments, CheckBreakpointResponse, GetAvailableStepsArguments, GetAvailableStepsResponse, GetBreakpointTypesResponse, GetCurrentLocationResponse, GetRuntimeStateArguments, GetRuntimeStateResponse, GetSteppingModesResponse, InitArguments, InitializeResponse, InitResponse, ParseArguments, ParseResponse, StepArguments, StepResponse } from "./lrp";
 import { DebugProtocol } from "@vscode/debugprotocol";
 
 /**
@@ -47,7 +47,6 @@ class Proxy {
  * Proxy for a language runtime implementing LRP.
  */
 export class LanguageRuntimeProxy extends Proxy {
-
     public async initialize(): Promise<InitializeResponse> {
         return this.request('initialize', []);
     }

@@ -51,7 +51,7 @@ export class StepManager {
         });
     }
 
-    public get enabledStep(): Step | undefined {
-        return this._enabledStep;
+    public get enabledStep(): Step {
+        return this._enabledStep ? this._enabledStep : this.availableSteps![0];
     }
 }

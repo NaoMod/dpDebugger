@@ -41,6 +41,7 @@ export class CustomDebugSession extends DebugSession {
     private isInitialized: boolean = false;
     private runtime: CustomDebugRuntime;
     private initializeArgs: DebugProtocol.InitializeRequestArguments;
+    private willContinueUntilChoice: boolean = false;
 
     /**
      * 
@@ -231,8 +232,9 @@ export class CustomDebugSession extends DebugSession {
 
         if (args.enabledBreakpointTypeIds) this.runtime.breakpointManager.enableBreakpointTypes(args.enabledBreakpointTypeIds);
 
-        if (!args.pauseOnStart) this.runtime.run();
+        if (!args.pauseOnStart) this.runtime.run(false);
 
+        this.runtime.updateAvailableSteps();
         this.sendResponse(response);
 
         if (args.pauseOnStart)
@@ -295,7 +297,8 @@ export class CustomDebugSession extends DebugSession {
     protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments, request?: DebugProtocol.Request | undefined): void {
         this.sendResponse(response);
 
-        this.runtime.run(args.singleThread ? args.threadId : undefined);
+        this.runtime.run(this.willContinueUntilChoice, args.singleThread ? args.threadId : undefined);
+        this.willContinueUntilChoice = false;
     }
 
     /**
@@ -383,7 +386,8 @@ export class CustomDebugSession extends DebugSession {
         if (this.runtime.capabilities.supportsStackTrace) {
             response.body = (await this.runtime.lrProxy.stackTrace(args)).body;
         } else {
-            const location: Location | undefined = this.runtime.activatedBreakpoint?.location;
+            let location: Location | undefined = this.runtime.activatedBreakpoint?.location;
+            if (!location) location = await this.runtime.getCurrentLocation();
 
             const stackFrame: StackFrame = {
                 id: 0,
@@ -492,6 +496,11 @@ export class CustomDebugSession extends DebugSession {
 
                 break;
 
+            case 'willContinueUntilChoice':
+                this.willContinueUntilChoice = true;
+
+                break;
+
             default:
                 this.sendErrorResponse(response, {
                     id: 100, format: '{_exception}', variables: {
@@ -518,6 +527,7 @@ export class CustomDebugSession extends DebugSession {
         }
 
         await stepFunction.call(this.runtime, threadId);
+        await this.runtime.updateAvailableSteps();
 
         this.sendEvent(new StoppedEvent('step', threadId ? threadId : CustomDebugSession.threadID));
     }

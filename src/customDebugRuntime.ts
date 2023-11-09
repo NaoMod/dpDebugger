@@ -3,7 +3,7 @@ import { DebugProtocol } from "@vscode/debugprotocol";
 import { ActivatedBreakpoint, CDAPBreakpointManager } from "./breakpointManager";
 import { CustomDebugSession } from "./customDebugSession";
 import { Step, SteppingMode } from "./DAPExtension";
-import { GetAvailableStepsArguments, GetBreakpointTypesResponse, GetRuntimeStateResponse, GetSteppingModesResponse, InitResponse, LanguageRuntimeCapabilities, ParseResponse, StepArguments, StepResponse } from "./lrp";
+import { GetAvailableStepsArguments, GetBreakpointTypesResponse, GetRuntimeStateResponse, GetSteppingModesResponse, InitResponse, LanguageRuntimeCapabilities, Location, ParseResponse, StepArguments, StepResponse } from "./lrp";
 import { LanguageRuntimeProxy } from "./lrProxy";
 import { StepManager } from "./stepManager";
 import { VariableHandler } from "./variableHandler";
@@ -69,17 +69,20 @@ export class CustomDebugRuntime {
      * 
      * Should only be called after {@link initExecution} has been called.
      * 
+     * @param continueUntilChoice Whether the execution should stop when a choice is possible.
      * @param threadId ID of the thread for which to resume execution. If not provided, all threads resume execution.
      * If the langauge runtime doesn't support threads, then this parameter sould either not be provided, or be equal to the mock thread ID
      * {@link CustomDebugSession.threadID}.
      */
-    public async run(threadId?: number) {
+    public async run(continueUntilChoice: boolean, threadId?: number) {
         if (!this._sourceFile) throw new Error('No sources loaded.');
         if (threadId && !this._languageRuntimeCapabilities.supportsThreads && threadId != CustomDebugSession.threadID) throw new Error('Unexpected thread ID.')
 
         while (!this._isExecutionDone) {
             if (!this.noDebug) {
                 if (await this.checkBreakpoints()) {
+                    this.updateAvailableSteps();
+
                     const stoppedEvent: DebugProtocol.StoppedEvent = new StoppedEvent('breakpoint', threadId ? threadId : CustomDebugSession.threadID);
                     stoppedEvent.body.description = this._activatedBreakpoint!.message
                     this.debugSession.sendEvent(stoppedEvent);
@@ -95,6 +98,15 @@ export class CustomDebugRuntime {
             if (threadId) args.threadId = threadId;
 
             this._isExecutionDone = (await this.lrProxy.executeStep(args)).isExecutionDone;
+
+            if (continueUntilChoice) {
+                await this.updateAvailableSteps();
+
+                if (this._stepManager.availableSteps && this._stepManager.availableSteps.length > 1) {
+                    this.debugSession.sendEvent(new StoppedEvent('choice', threadId ? threadId : CustomDebugSession.threadID));
+                    return;
+                }
+            }
         }
 
         this.debugSession.sendEvent(new TerminatedEvent());
@@ -183,8 +195,6 @@ export class CustomDebugRuntime {
 
     // TODO: handle stepIn / stepOut
     public async getAvailableSteps(): Promise<Step[]> {
-        if (!this._stepManager.availableSteps) await this.updateAvailableSteps();
-
         return this._stepManager.availableSteps!.map((step, i) => {
             return {
                 id: step.id,
@@ -197,6 +207,10 @@ export class CustomDebugRuntime {
 
     public enableStep(stepId?: string) {
         this._stepManager.enableStep(stepId);
+    }
+
+    public getCurrentLocation(): Location | undefined {
+        return this._stepManager.enabledStep.location;
     }
 
     public get sourceFile(): string {
@@ -223,13 +237,11 @@ export class CustomDebugRuntime {
         return this._isInitDone;
     }
 
-    private async updateAvailableSteps(): Promise<void> {
+    public async updateAvailableSteps(): Promise<void> {
         let stepsArgs: GetAvailableStepsArguments = {
             sourceFile: this._sourceFile,
             steppingModeId: this._stepManager.enabledSteppingModeId
         }
-
-        //if (this._stepManager.chosenStep) args.compositeStepId = this._stepManager.chosenStep.id;
 
         const response = await this.lrProxy.getAvailableSteps(stepsArgs);
         this._stepManager.availableSteps = response.availableSteps;
