@@ -189,9 +189,12 @@ export interface Step {
     name: string;
     description?: string;
     isComposite: boolean;
-    location?: Location;
 }
 
-export interface GetCurrentLocationResponse {
+export interface GetStepLocationArguments extends Arguments {
+    stepId: string;
+}
+
+export interface GetStepLocationResponse {
     location?: Location;
 }

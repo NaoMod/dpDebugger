@@ -218,8 +218,20 @@ export class CustomDebugRuntime {
         this._stepManager.enableStep(stepId);
     }
 
-    public getCurrentLocation(): LRP.Location | undefined {
-        return this._stepManager.enabledStep.location;
+    public async getCurrentLocation(): Promise<LRP.Location | undefined> {
+        const location : LRP.Location | null | undefined = this._stepManager.locations.get(this._stepManager.enabledStep);
+
+        if (location === null) return undefined;
+        if (location) return location;
+
+        const response: LRP.GetStepLocationResponse = await this.lrProxy.getStepLocation({
+            sourceFile: this._sourceFile,
+            stepId: this._stepManager.enabledStep.id
+        });
+
+        this._stepManager.locations.set(this._stepManager.enabledStep, response.location ? response.location : null);
+        
+        return response.location ? response.location : undefined;
     }
 
     public get sourceFile(): string {
@@ -257,5 +269,6 @@ export class CustomDebugRuntime {
         const response = await this.lrProxy.getAvailableSteps(stepsArgs);
         this._stepManager.availableSteps = response.availableSteps;
         this._stepManager.enableStep();
+        this._stepManager.locations.clear();
     }
 }

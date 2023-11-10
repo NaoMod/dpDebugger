@@ -5,11 +5,13 @@ export class StepManager {
     private _enabledStep?: LRP.Step;
 
     public availableSteps?: LRP.Step[];
+    public locations: Map<LRP.Step, LRP.Location | null>;
     
     constructor(private _availableSteppingModes: LRP.SteppingMode[]) {
         this._enabledSteppingMode = _availableSteppingModes.length > 0 ? _availableSteppingModes[0] : undefined;
         this._enabledStep = undefined;
         this.availableSteps = undefined;
+        this.locations = new Map();
     }
 
     public enableSteppingMode(steppingModeId: string): void {

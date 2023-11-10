@@ -120,6 +120,10 @@ export class LanguageRuntimeProxy extends Proxy {
         return this.request('getAvailableSteps', [args]);
     }
 
+    public async getStepLocation(args: LRP.GetStepLocationArguments): Promise<LRP.GetStepLocationResponse> {
+        return this.request('getStepLocation', [args]);
+    }
+
     public async threads(): Promise<DebugProtocol.ThreadsResponse> {
         return this.request('threads', []);
     }
