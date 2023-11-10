@@ -163,16 +163,6 @@ export interface LanguageRuntimeCapabilities {
     supportsScopes: boolean;
 }
 
-export interface InitializeResponse {
-    capabilities: LanguageRuntimeCapabilities;
-}
-
-export interface LanguageRuntimeCapabilities {
-    supportsThreads: boolean;
-    supportsStackTrace: boolean;
-    supportsScopes: boolean;
-}
-
 export interface SteppingMode {
     id: string;
     name: string;
