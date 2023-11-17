@@ -3,6 +3,7 @@ import { DebugProtocol } from "@vscode/debugprotocol";
 import * as DAPExtension from "./DAPExtension";
 import { LanguageRuntimeProxy } from "./lrProxy";
 import * as LRP from "./lrp";
+import { Breakpoint } from "@vscode/debugadapter";
 
 /**
  * Manages breakpoints set through cDAP.
@@ -97,36 +98,34 @@ export class CDAPBreakpointManager {
 
         for (const newBreakpoint of breakpoints) {
             if (!newBreakpoint.column) {
-                setBreakpoints.push({ verified: false });
+                setBreakpoints.push(new Breakpoint(false));
                 continue;
             }
 
             const element: LRP.ModelElement | undefined = this.astElementRegistry.getElementFromPosition(newBreakpoint.line + this.lineOffset, newBreakpoint.column + this.columnOffset);
             if (!element) {
-                setBreakpoints.push({ verified: false });
+                setBreakpoints.push(new Breakpoint(false));
                 continue;
             }
 
             if (!element.location) {
-                setBreakpoints.push({ verified: false });
+                setBreakpoints.push(new Breakpoint(false));
                 continue;
             }
 
             const hasPossibleBreakpointType: boolean = this._availableBreakpointTypes.find(breakpointType => breakpointType.parameters[0].objectType! === element.type) !== undefined;
             if (!hasPossibleBreakpointType) {
-                setBreakpoints.push({ verified: false });
+                setBreakpoints.push(new Breakpoint(false));
                 continue;
             }
 
             if (this.elementsWithBreakpoints.has(element)) {
-                setBreakpoints.push({ verified: false });
+                setBreakpoints.push(new Breakpoint(false));
                 continue;
             }
 
             this.elementsWithBreakpoints.add(element);
-            setBreakpoints.push({
-                verified: true
-            });
+            setBreakpoints.push(new Breakpoint(true));
         }
 
         for (const activatedBreakpoint of this.activatedBreakpoints) {

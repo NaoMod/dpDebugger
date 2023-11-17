@@ -1,4 +1,4 @@
-import { DebugSession, InitializedEvent, InvalidatedEvent, Response, Scope, Source, StackFrame, StoppedEvent, TerminatedEvent, Thread } from "@vscode/debugadapter";
+import { Breakpoint, DebugSession, InitializedEvent, InvalidatedEvent, Response, Scope, Source, StackFrame, StoppedEvent, TerminatedEvent, Thread } from "@vscode/debugadapter";
 import { DebugProtocol } from "@vscode/debugprotocol";
 import { threadId } from "worker_threads";
 import * as DAPExtension from "./DAPExtension";
@@ -316,7 +316,13 @@ export class CustomDebugSession extends DebugSession {
             resolve()
         }, 200));
 
-        const breakpoints: DebugProtocol.Breakpoint[] = this.runtime.breakpointManager.setBreakpoints(args.breakpoints!);
+        let breakpoints: DebugProtocol.Breakpoint[];
+
+        if (args.source.path != this.runtime.sourceFile) {
+            breakpoints = args.breakpoints ? args.breakpoints.map(() => new Breakpoint(false)) : [];
+        } else {
+            breakpoints = this.runtime.breakpointManager.setBreakpoints(args.breakpoints!);
+        }
 
         response.body = {
             breakpoints: breakpoints
