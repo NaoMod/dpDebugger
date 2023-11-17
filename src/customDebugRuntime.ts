@@ -78,9 +78,11 @@ export class CustomDebugRuntime {
         if (!this._sourceFile) throw new Error('No sources loaded.');
         if (threadId && !this._languageRuntimeCapabilities.supportsThreads && threadId != CustomDebugSession.threadID) throw new Error('Unexpected thread ID.')
 
+        let isFirstStep: boolean = true;
         while (!this._isExecutionDone) {
             if (!this.noDebug) {
-                if (await this.checkBreakpoints()) {
+                const isBreakpointActivated: boolean = isFirstStep ? await this.checkBreakpoints(this._stepManager.enabledStep.id) : await this.checkBreakpoints();
+                if (isBreakpointActivated) {
                     this.updateAvailableSteps();
 
                     const stoppedEvent: DebugProtocol.StoppedEvent = new StoppedEvent('breakpoint', threadId ? threadId : CustomDebugSession.threadID);
@@ -96,8 +98,10 @@ export class CustomDebugRuntime {
             };
 
             if (threadId) args.threadId = threadId;
+            if (isFirstStep) args.stepId = this._stepManager.enabledStep.id;
 
             this._isExecutionDone = (await this.lrProxy.executeStep(args)).isExecutionDone;
+            isFirstStep = false;
 
             if (continueUntilChoice) {
                 await this.updateAvailableSteps();
@@ -118,7 +122,7 @@ export class CustomDebugRuntime {
      * Should only be called after {@link initExecution} has been called.
      * 
      * @param threadId ID of the thread in which to execute a step. If not provided, all threads perform a step.
-     * If the langauge runtime doesn't support threads, then this parameter sould either not be provided, or be equal to the mock thread ID
+     * If the language runtime doesn't support threads, then this parameter sould either not be provided, or be equal to the mock thread ID
      * {@link CustomDebugSession.threadID}.
      */
     public async nextStep(threadId?: number) {
@@ -157,8 +161,8 @@ export class CustomDebugRuntime {
      * 
      * @returns True if a breakpoint was activated, false otherwise.
      */
-    private async checkBreakpoints(): Promise<boolean> {
-        this._activatedBreakpoint = await this._breakpointManager.checkBreakpoints();
+    private async checkBreakpoints(stepId?: string): Promise<boolean> {
+        this._activatedBreakpoint = await this._breakpointManager.checkBreakpoints(stepId);
         return this._activatedBreakpoint != undefined;
     }
 
@@ -197,7 +201,7 @@ export class CustomDebugRuntime {
                 id: mode.id,
                 name: mode.name,
                 description: mode.description,
-                isEnabled: (this._stepManager.enabledSteppingMode != undefined) && (this._stepManager.enabledSteppingMode?.id == mode.id)
+                isEnabled: this._stepManager.enabledSteppingMode.id == mode.id
             };
         });
     }
@@ -219,7 +223,8 @@ export class CustomDebugRuntime {
     }
 
     public async getCurrentLocation(): Promise<LRP.Location | undefined> {
-        const location : LRP.Location | null | undefined = this._stepManager.locations.get(this._stepManager.enabledStep);
+        if (this._isExecutionDone) return undefined;
+        const location: LRP.Location | null | undefined = this._stepManager.locations.get(this._stepManager.enabledStep);
 
         if (location === null) return undefined;
         if (location) return location;
@@ -230,7 +235,7 @@ export class CustomDebugRuntime {
         });
 
         this._stepManager.locations.set(this._stepManager.enabledStep, response.location ? response.location : null);
-        
+
         return response.location ? response.location : undefined;
     }
 
@@ -261,7 +266,7 @@ export class CustomDebugRuntime {
     public async updateAvailableSteps(stepId?: string): Promise<void> {
         const stepsArgs: LRP.GetAvailableStepsArguments = {
             sourceFile: this._sourceFile,
-            steppingModeId: this._stepManager.enabledSteppingModeId
+            steppingModeId: this._stepManager.enabledSteppingMode.id
         }
 
         if (stepId) stepsArgs.compositeStepId = stepId;

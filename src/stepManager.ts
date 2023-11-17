@@ -1,16 +1,18 @@
 import * as LRP from "./lrp";
 
 export class StepManager {
-    private _enabledSteppingMode?: LRP.SteppingMode;
+    private _enabledSteppingMode: LRP.SteppingMode;
     private _enabledStep?: LRP.Step;
 
-    public availableSteps?: LRP.Step[];
+    public availableSteps: LRP.Step[];
     public locations: Map<LRP.Step, LRP.Location | null>;
     
     constructor(private _availableSteppingModes: LRP.SteppingMode[]) {
-        this._enabledSteppingMode = _availableSteppingModes.length > 0 ? _availableSteppingModes[0] : undefined;
+        if (_availableSteppingModes.length == 0) throw new Error("No stepping mode available.");
+        
+        this._enabledSteppingMode = _availableSteppingModes[0];
         this._enabledStep = undefined;
-        this.availableSteps = undefined;
+        this.availableSteps = [];
         this.locations = new Map();
     }
 
@@ -23,16 +25,10 @@ export class StepManager {
     }
 
     public enableStep(stepId?: string) {
-        this._enabledStep = this.availableSteps?.find(step => step.id === stepId);
+        this._enabledStep = stepId ? this.availableSteps?.find(step => step.id === stepId) : undefined;
     }
 
-    public get enabledSteppingModeId(): string {
-        if (!this._enabledSteppingMode) throw new Error('No stepping mode configured.');
-
-        return this._enabledSteppingMode.id;
-    }
-
-    public get enabledSteppingMode(): LRP.SteppingMode | undefined {
+    public get enabledSteppingMode(): LRP.SteppingMode {
         return this._enabledSteppingMode;
     }
 
@@ -41,6 +37,6 @@ export class StepManager {
     }
 
     public get enabledStep(): LRP.Step {
-        return this._enabledStep ? this._enabledStep : this.availableSteps![0];
+        return this._enabledStep ? this._enabledStep : this.availableSteps[0];
     }
 }

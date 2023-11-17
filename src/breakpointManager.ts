@@ -46,7 +46,7 @@ export class CDAPBreakpointManager {
      * 
      * @returns The breakpoint that activated first, or undefined if no breakpoint was activated.
      */
-    public async checkBreakpoints(): Promise<ActivatedBreakpoint | undefined> {
+    public async checkBreakpoints(stepId?: string): Promise<ActivatedBreakpoint | undefined> {
         for (const element of this.elementsWithBreakpoints) {
             if (this.activatedBreakpoints.has(element)) continue;
 
@@ -54,11 +54,15 @@ export class CDAPBreakpointManager {
             if (!breakpointTypes) continue;
 
             for (const breakpointType of breakpointTypes) {
-                const checkBreakpointResponse: LRP.CheckBreakpointResponse = await this.lrProxy.checkBreakpoint({
+                const args: LRP.CheckBreakpointArguments = {
                     sourceFile: this.sourceFile,
                     typeId: breakpointType.id,
                     elementId: element.id
-                });
+                };
+
+                if (stepId) args.stepId = stepId;
+
+                const checkBreakpointResponse: LRP.CheckBreakpointResponse = await this.lrProxy.checkBreakpoint(args);
 
                 if (checkBreakpointResponse.isActivated) {
                     this.activatedBreakpoints.add(element);

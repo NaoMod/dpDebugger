@@ -1,4 +1,3 @@
-
 interface Arguments {
     /** Source file targeted by the service call. */
     sourceFile: string;
@@ -46,6 +45,8 @@ export interface GetRuntimeStateResponse {
 }
 
 export interface CheckBreakpointArguments extends Arguments {
+    stepId?: string;
+
     /** Identifier of the breakpoint type. */
     typeId: string;
 
