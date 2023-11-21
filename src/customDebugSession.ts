@@ -318,7 +318,7 @@ export class CustomDebugSession extends DebugSession {
 
         let breakpoints: DebugProtocol.Breakpoint[];
 
-        if (args.source.path != this.runtime.sourceFile) {
+        if (args.source.path != this.runtime.sourceFile && args.source.name != this.runtime.sourceFile) {
             breakpoints = args.breakpoints ? args.breakpoints.map(() => new Breakpoint(false)) : [];
         } else {
             breakpoints = this.runtime.breakpointManager.setBreakpoints(args.breakpoints!);
