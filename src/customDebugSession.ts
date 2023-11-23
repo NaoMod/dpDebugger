@@ -234,7 +234,7 @@ export class CustomDebugSession extends DebugSession {
 
         if (!args.pauseOnStart) this.runtime.run(false);
 
-        this.runtime.updateAvailableSteps();
+        await this.runtime.updateAvailableSteps();
         this.sendResponse(response);
 
         if (args.pauseOnStart)
@@ -377,7 +377,7 @@ export class CustomDebugSession extends DebugSession {
     protected async stepOutRequest(response: DebugProtocol.StepOutResponse, args: DebugProtocol.StepOutArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
         this.sendResponse(response);
 
-        await this.performStepAction(this.runtime.nextStep, args.singleThread ? args.threadId : undefined);
+        await this.performStepAction(this.runtime.stepOut, args.singleThread ? args.threadId : undefined);
     }
 
     /**
@@ -489,7 +489,7 @@ export class CustomDebugSession extends DebugSession {
 
             case 'getAvailableSteps':
                 const availableStepsBody: DAPExtension.GetAvailableStepsResponse = {
-                    availableSteps: await this.runtime.getAvailableSteps()
+                    availableSteps: this.runtime.getAvailableSteps()
                 };
 
                 response.body = availableStepsBody;
@@ -528,11 +528,14 @@ export class CustomDebugSession extends DebugSession {
     private async performStepAction(stepFunction: () => Promise<void>, threadId?: number): Promise<void> {
         if (this.runtime.isExecutionDone) {
             this.sendEvent(new TerminatedEvent());
+            this.runtime.terminatedEventSent = true;
             return;
         }
 
         await stepFunction.call(this.runtime, threadId);
-        await this.runtime.updateAvailableSteps();
+
+        if ((stepFunction == this.runtime.nextStep || stepFunction == this.runtime.stepOut) && !this.runtime.terminatedEventSent)
+            await this.runtime.updateAvailableSteps();
 
         this.sendEvent(new StoppedEvent('step', threadId ? threadId : CustomDebugSession.threadID));
     }

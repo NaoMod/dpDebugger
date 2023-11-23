@@ -35,6 +35,7 @@ export interface StepArguments extends Arguments {
 export interface StepResponse {
     /** True if the execution is done, false otherwise. */
     isExecutionDone: boolean;
+    completedSteps: string[];
 }
 
 export interface GetRuntimeStateArguments extends Arguments { }
@@ -182,6 +183,7 @@ export interface GetAvailableStepsArguments extends Arguments {
 }
 
 export interface GetAvailableStepsResponse {
+    parentStepId?: string; 
     availableSteps: Step[];
 }
 

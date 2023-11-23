@@ -12,6 +12,7 @@ import { VariableHandler } from "./variableHandler";
  * Handles debugging operations for a source file.
  */
 export class CustomDebugRuntime {
+    public terminatedEventSent: boolean;
     private _sourceFile: string;
     private noDebug: boolean;
 
@@ -32,6 +33,7 @@ export class CustomDebugRuntime {
     constructor(private debugSession: CustomDebugSession, languageRuntimePort: number) {
         this.lrProxy = new LanguageRuntimeProxy(languageRuntimePort);
         this._isInitDone = false;
+        this.terminatedEventSent = false;
     }
 
     /**
@@ -76,44 +78,10 @@ export class CustomDebugRuntime {
      */
     public async run(continueUntilChoice: boolean, threadId?: number) {
         if (!this._sourceFile) throw new Error('No sources loaded.');
+        if (this._isExecutionDone) throw new Error('Execution is already done.');
         if (threadId && !this._languageRuntimeCapabilities.supportsThreads && threadId != CustomDebugSession.threadID) throw new Error('Unexpected thread ID.')
 
-        let isFirstStep: boolean = true;
-        while (!this._isExecutionDone) {
-            if (!this.noDebug) {
-                const isBreakpointActivated: boolean = isFirstStep ? await this.checkBreakpoints(this._stepManager.enabledStep.id) : await this.checkBreakpoints();
-                if (isBreakpointActivated) {
-                    this.updateAvailableSteps();
-
-                    const stoppedEvent: DebugProtocol.StoppedEvent = new StoppedEvent('breakpoint', threadId ? threadId : CustomDebugSession.threadID);
-                    stoppedEvent.body.description = this._activatedBreakpoint!.message
-                    this.debugSession.sendEvent(stoppedEvent);
-
-                    return;
-                }
-            }
-
-            const args: LRP.StepArguments = {
-                sourceFile: this._sourceFile
-            };
-
-            if (threadId) args.threadId = threadId;
-            if (isFirstStep) args.stepId = this._stepManager.enabledStep.id;
-
-            this._isExecutionDone = (await this.lrProxy.executeStep(args)).isExecutionDone;
-            isFirstStep = false;
-
-            if (continueUntilChoice) {
-                await this.updateAvailableSteps();
-
-                if (this._stepManager.availableSteps && this._stepManager.availableSteps.length > 1) {
-                    this.debugSession.sendEvent(new StoppedEvent('choice', threadId ? threadId : CustomDebugSession.threadID));
-                    return;
-                }
-            }
-        }
-
-        this.debugSession.sendEvent(new TerminatedEvent());
+        await this._run(continueUntilChoice, this.noDebug, threadId);
     }
 
     /**
@@ -130,40 +98,37 @@ export class CustomDebugRuntime {
         if (this._isExecutionDone) throw new Error('Execution is already done.');
         if (threadId && !this._languageRuntimeCapabilities.supportsThreads && threadId != CustomDebugSession.threadID) throw new Error('Unexpected thread ID.')
 
-        const args: LRP.StepArguments = {
-            sourceFile: this._sourceFile
-        };
-
-        if (threadId) args.threadId = threadId;
-        if (this._stepManager.enabledStep) args.stepId = this._stepManager.enabledStep.id;
-
-        const stepResponse: LRP.StepResponse = await this.lrProxy.executeStep(args);
-        this._activatedBreakpoint = undefined;
-        this._isExecutionDone = stepResponse.isExecutionDone;
-
-        this.variableHandler.invalidateRuntime();
+        await this.nextCompositeStep(this._stepManager.enabledStep.id, threadId);
     }
 
     public async stepIn(threadId?: number) {
+        if (!this._sourceFile) throw new Error('No sources loaded.');
+        if (this._isExecutionDone) throw new Error('Execution is already done.');
+        if (threadId && !this._languageRuntimeCapabilities.supportsThreads && threadId != CustomDebugSession.threadID) throw new Error('Unexpected thread ID.')
+
         const enabledStep: LRP.Step = this._stepManager.enabledStep;
-        if (!enabledStep.isComposite) {
-            this.nextStep(threadId);
+        if (enabledStep.isComposite) {
+            await this.updateAvailableSteps(enabledStep.id);
+        } else {
+            await this.nextAtomicStep(enabledStep.id, threadId);
+            await this.updateAvailableSteps();
+        }
+    }
+
+    public async stepOut(threadId?: number) {
+        if (!this._sourceFile) throw new Error('No sources loaded.');
+        if (this._isExecutionDone) throw new Error('Execution is already done.');
+        if (threadId && !this._languageRuntimeCapabilities.supportsThreads && threadId != CustomDebugSession.threadID) throw new Error('Unexpected thread ID.')
+
+        if (!this._stepManager.parentStepId) {
+            await this._run(false, true, threadId);
             return;
         }
 
-        await this.updateAvailableSteps(enabledStep.id);
-    }
-
-    /**
-     * Checks whether a domain-specific breakpoint is activated on the current runtime state.
-     * 
-     * Should only be called after {@link initExecution} has been called.
-     * 
-     * @returns True if a breakpoint was activated, false otherwise.
-     */
-    private async checkBreakpoints(stepId?: string): Promise<boolean> {
-        this._activatedBreakpoint = await this._breakpointManager.checkBreakpoints(stepId);
-        return this._activatedBreakpoint != undefined;
+        let completedSteps: string[] = await this.nextAtomicStep(this._stepManager.enabledStep.id, threadId);
+        while (!this._isExecutionDone && !completedSteps.includes(this._stepManager.parentStepId)) {
+            completedSteps = await this.nextAtomicStep(undefined, threadId);
+        }
     }
 
     /**
@@ -206,8 +171,7 @@ export class CustomDebugRuntime {
         });
     }
 
-    // TODO: handle stepIn / stepOut
-    public async getAvailableSteps(): Promise<DAPExtension.Step[]> {
+    public getAvailableSteps(): DAPExtension.Step[] {
         return this._stepManager.availableSteps!.map((step, i) => {
             return {
                 id: step.id,
@@ -216,6 +180,21 @@ export class CustomDebugRuntime {
                 isEnabled: this._stepManager.enabledStep ? this._stepManager.enabledStep === step : i == 0
             };
         });
+    }
+
+    public async updateAvailableSteps(stepId?: string): Promise<void> {
+        const stepsArgs: LRP.GetAvailableStepsArguments = {
+            sourceFile: this._sourceFile,
+            steppingModeId: this._stepManager.enabledSteppingMode.id
+        }
+
+        if (stepId) stepsArgs.compositeStepId = stepId;
+
+        const response = await this.lrProxy.getAvailableSteps(stepsArgs);
+        this._stepManager.availableSteps = response.availableSteps;
+        this._stepManager.parentStepId = response.parentStepId;
+        this._stepManager.enableStep();
+        this._stepManager.locations.clear();
     }
 
     public enableStep(stepId?: string) {
@@ -263,17 +242,79 @@ export class CustomDebugRuntime {
         return this._isInitDone;
     }
 
-    public async updateAvailableSteps(stepId?: string): Promise<void> {
-        const stepsArgs: LRP.GetAvailableStepsArguments = {
-            sourceFile: this._sourceFile,
-            steppingModeId: this._stepManager.enabledSteppingMode.id
+    private async _run(continueUntilChoice: boolean, noDebug: boolean, threadId?: number) {
+        let isFirstStep: boolean = true;
+        while (!this._isExecutionDone) {
+            if (!this.noDebug) {
+                const isBreakpointActivated: boolean = isFirstStep ? await this.checkBreakpoints(this._stepManager.enabledStep.id) : await this.checkBreakpoints();
+                if (isBreakpointActivated) {
+                    await this.updateAvailableSteps();
+
+                    const stoppedEvent: DebugProtocol.StoppedEvent = new StoppedEvent('breakpoint', threadId ? threadId : CustomDebugSession.threadID);
+                    stoppedEvent.body.description = this._activatedBreakpoint!.message
+                    this.debugSession.sendEvent(stoppedEvent);
+
+                    return;
+                }
+            }
+
+            const args: LRP.StepArguments = {
+                sourceFile: this._sourceFile
+            };
+
+            if (threadId) args.threadId = threadId;
+            if (isFirstStep) args.stepId = this._stepManager.enabledStep.id;
+
+            this._isExecutionDone = (await this.lrProxy.executeStep(args)).isExecutionDone;
+            isFirstStep = false;
+
+            if (continueUntilChoice) {
+                await this.updateAvailableSteps();
+
+                if (this._stepManager.availableSteps && this._stepManager.availableSteps.length > 1) {
+                    this.debugSession.sendEvent(new StoppedEvent('choice', threadId ? threadId : CustomDebugSession.threadID));
+                    return;
+                }
+            }
         }
 
-        if (stepId) stepsArgs.compositeStepId = stepId;
+        this.terminatedEventSent = true;
+        this.debugSession.sendEvent(new TerminatedEvent());
+    }
 
-        const response = await this.lrProxy.getAvailableSteps(stepsArgs);
-        this._stepManager.availableSteps = response.availableSteps;
-        this._stepManager.enableStep();
-        this._stepManager.locations.clear();
+    private async nextCompositeStep(stepId: string, threadId?: number): Promise<void> {
+        let completedSteps: string[] = await this.nextAtomicStep(stepId, threadId);
+
+        while (!this._isExecutionDone && !completedSteps.includes(stepId)) {
+            completedSteps = await this.nextAtomicStep(undefined, threadId);
+        }
+    }
+
+    private async nextAtomicStep(stepId?: string, threadId?: number): Promise<string[]> {
+        const args: LRP.StepArguments = {
+            sourceFile: this._sourceFile
+        };
+
+        if (threadId) args.threadId = threadId;
+        if (stepId) args.stepId = stepId;
+
+        let stepResponse: LRP.StepResponse = await this.lrProxy.executeStep(args);
+        this._isExecutionDone = stepResponse.isExecutionDone;
+        this.variableHandler.invalidateRuntime();
+        this._activatedBreakpoint = undefined;
+
+        return stepResponse.completedSteps;
+    }
+
+    /**
+     * Checks whether a domain-specific breakpoint is activated on the current runtime state.
+     * 
+     * Should only be called after {@link initExecution} has been called.
+     * 
+     * @returns True if a breakpoint was activated, false otherwise.
+     */
+    private async checkBreakpoints(stepId?: string): Promise<boolean> {
+        this._activatedBreakpoint = await this._breakpointManager.checkBreakpoints(stepId);
+        return this._activatedBreakpoint != undefined;
     }
 }

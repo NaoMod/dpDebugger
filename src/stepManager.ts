@@ -5,7 +5,9 @@ export class StepManager {
     private _enabledStep?: LRP.Step;
 
     public availableSteps: LRP.Step[];
+    public parentStepId?: string;
     public locations: Map<LRP.Step, LRP.Location | null>;
+    
     
     constructor(private _availableSteppingModes: LRP.SteppingMode[]) {
         if (_availableSteppingModes.length == 0) throw new Error("No stepping mode available.");
@@ -13,6 +15,7 @@ export class StepManager {
         this._enabledSteppingMode = _availableSteppingModes[0];
         this._enabledStep = undefined;
         this.availableSteps = [];
+        this.parentStepId = undefined;
         this.locations = new Map();
     }
 
