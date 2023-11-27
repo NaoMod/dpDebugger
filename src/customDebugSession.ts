@@ -392,8 +392,7 @@ export class CustomDebugSession extends DebugSession {
         if (this.runtime.capabilities.supportsStackTrace) {
             response.body = (await this.runtime.lrProxy.stackTrace(args)).body;
         } else {
-            let location: LRP.Location | undefined = this.runtime.activatedBreakpoint?.location;
-            if (!location) location = await this.runtime.getCurrentLocation();
+            let location: LRP.Location | undefined = await this.runtime.getCurrentLocation();
 
             const stackFrame: StackFrame = {
                 id: 0,

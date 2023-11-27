@@ -1,9 +1,9 @@
 
+import { Breakpoint } from "@vscode/debugadapter";
 import { DebugProtocol } from "@vscode/debugprotocol";
 import * as DAPExtension from "./DAPExtension";
 import { LanguageRuntimeProxy } from "./lrProxy";
 import * as LRP from "./lrp";
-import { Breakpoint } from "@vscode/debugadapter";
 
 /**
  * Manages breakpoints set through cDAP.
@@ -68,14 +68,7 @@ export class CDAPBreakpointManager {
                 if (checkBreakpointResponse.isActivated) {
                     this.activatedBreakpoints.add(element);
                     return {
-                        message: checkBreakpointResponse.message!,
-                        location: {
-
-                            line: element.location!.line + this.lineOffset,
-                            endLine: element.location!.endLine + this.lineOffset,
-                            column: element.location!.column + this.columnOffset,
-                            endColumn: element.location!.endColumn + this.columnOffset + 1
-                        }
+                        message: checkBreakpointResponse.message!
                     };
                 }
             }
@@ -198,9 +191,6 @@ export class CDAPBreakpointManager {
 export interface ActivatedBreakpoint {
     /** Message to be displayed to the user. */
     message: string;
-
-    /** Location of the model element on which the activated breakpoint is attached. */
-    location: LRP.Location;
 }
 
 /**
