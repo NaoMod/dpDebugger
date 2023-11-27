@@ -172,7 +172,7 @@ export class CustomDebugRuntime {
     }
 
     public getAvailableSteps(): DAPExtension.Step[] {
-        return this._stepManager.availableSteps!.map((step, i) => {
+        return this._stepManager.availableSteps.map((step, i) => {
             return {
                 id: step.id,
                 name: step.name,
@@ -245,41 +245,51 @@ export class CustomDebugRuntime {
     private async _run(continueUntilChoice: boolean, noDebug: boolean, threadId?: number) {
         let isFirstStep: boolean = true;
         while (!this._isExecutionDone) {
-            if (!this.noDebug) {
-                const isBreakpointActivated: boolean = isFirstStep ? await this.checkBreakpoints(this._stepManager.enabledStep.id) : await this.checkBreakpoints();
-                if (isBreakpointActivated) {
-                    await this.updateAvailableSteps();
+            await this.singleRunStep(noDebug, isFirstStep, threadId);
+            if (this._activatedBreakpoint) return;
 
-                    const stoppedEvent: DebugProtocol.StoppedEvent = new StoppedEvent('breakpoint', threadId ? threadId : CustomDebugSession.threadID);
-                    stoppedEvent.body.description = this._activatedBreakpoint!.message
-                    this.debugSession.sendEvent(stoppedEvent);
-
-                    return;
-                }
-            }
-
-            const args: LRP.StepArguments = {
-                sourceFile: this._sourceFile
-            };
-
-            if (threadId) args.threadId = threadId;
-            if (isFirstStep) args.stepId = this._stepManager.enabledStep.id;
-
-            this._isExecutionDone = (await this.lrProxy.executeStep(args)).isExecutionDone;
             isFirstStep = false;
-
-            if (continueUntilChoice) {
-                await this.updateAvailableSteps();
-
-                if (this._stepManager.availableSteps && this._stepManager.availableSteps.length > 1) {
-                    this.debugSession.sendEvent(new StoppedEvent('choice', threadId ? threadId : CustomDebugSession.threadID));
-                    return;
-                }
-            }
+            if (await this.mustStopBecauseChoice(continueUntilChoice, threadId)) return;
         }
 
         this.terminatedEventSent = true;
         this.debugSession.sendEvent(new TerminatedEvent());
+    }
+
+    private async singleRunStep(noDebug: boolean, isFirstStep: boolean, threadId?: number) {
+        if (!noDebug) {
+            const isBreakpointActivated: boolean = isFirstStep ? await this.checkBreakpoints(this._stepManager.enabledStep.id) : await this.checkBreakpoints();
+            if (isBreakpointActivated) {
+                await this.updateAvailableSteps();
+
+                const stoppedEvent: DebugProtocol.StoppedEvent = new StoppedEvent('breakpoint', threadId ? threadId : CustomDebugSession.threadID);
+                stoppedEvent.body.description = this._activatedBreakpoint!.message
+                this.debugSession.sendEvent(stoppedEvent);
+
+                return;
+            }
+        }
+
+        const args: LRP.StepArguments = {
+            sourceFile: this._sourceFile
+        };
+
+        if (threadId) args.threadId = threadId;
+        if (isFirstStep) args.stepId = this._stepManager.enabledStep.id;
+
+        this._isExecutionDone = (await this.lrProxy.executeStep(args)).isExecutionDone;
+    }
+
+    private async mustStopBecauseChoice(continueUntilChoice: boolean, threadId?: number): Promise<boolean> {
+        if (!continueUntilChoice) return false;
+
+        await this.updateAvailableSteps();
+        if (this._stepManager.availableSteps && this._stepManager.availableSteps.length > 1) {
+            this.debugSession.sendEvent(new StoppedEvent('choice', threadId ? threadId : CustomDebugSession.threadID));
+            return true;
+        }
+
+        return false;
     }
 
     private async nextCompositeStep(stepId: string, threadId?: number): Promise<void> {

@@ -537,6 +537,7 @@ export class CustomDebugSession extends DebugSession {
         if ((stepFunction == this.runtime.nextStep || stepFunction == this.runtime.stepOut) && !this.runtime.terminatedEventSent)
             await this.runtime.updateAvailableSteps();
 
-        this.sendEvent(new StoppedEvent('step', threadId ? threadId : CustomDebugSession.threadID));
+        if (!this.runtime.terminatedEventSent)
+            this.sendEvent(new StoppedEvent('step', threadId ? threadId : CustomDebugSession.threadID));
     }
 }
