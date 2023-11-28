@@ -1,4 +1,3 @@
-import { DebugProtocol } from "@vscode/debugprotocol";
 import { Client, RequestParamsLike } from "jayson";
 import * as LRP from "./lrp";
 
@@ -47,10 +46,6 @@ class Proxy {
  * Proxy for a language runtime implementing LRP.
  */
 export class LanguageRuntimeProxy extends Proxy {
-    public async initialize(): Promise<LRP.InitializeResponse> {
-        return this.request('initialize', []);
-    }
-
     /**
      * Asks the language runtime to parse a program and store its AST.
      * 
@@ -122,17 +117,5 @@ export class LanguageRuntimeProxy extends Proxy {
 
     public async getStepLocation(args: LRP.GetStepLocationArguments): Promise<LRP.GetStepLocationResponse> {
         return this.request('getStepLocation', [args]);
-    }
-
-    public async threads(): Promise<DebugProtocol.ThreadsResponse> {
-        return this.request('threads', []);
-    }
-
-    public async stackTrace(args: DebugProtocol.StackTraceArguments): Promise<DebugProtocol.StackTraceResponse> {
-        return this.request('stackTrace', [args]);
-    }
-
-    public async scopes(args: DebugProtocol.ScopesArguments): Promise<DebugProtocol.ScopesResponse> {
-        return this.request('scopes', [args]);
     }
 }

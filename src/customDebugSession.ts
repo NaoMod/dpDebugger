@@ -1,6 +1,5 @@
 import { Breakpoint, DebugSession, InitializedEvent, InvalidatedEvent, Response, Scope, Source, StackFrame, StoppedEvent, TerminatedEvent, Thread } from "@vscode/debugadapter";
 import { DebugProtocol } from "@vscode/debugprotocol";
-import { threadId } from "worker_threads";
 import * as DAPExtension from "./DAPExtension";
 import { CustomDebugRuntime } from "./customDebugRuntime";
 import * as LRP from "./lrp";
@@ -201,19 +200,14 @@ export class CustomDebugSession extends DebugSession {
             resolve()
         }, 200));
 
-        if (this.runtime.capabilities.supportsThreads) {
-            response.body = (await this.runtime.lrProxy.threads()).body;
-        } else {
-            // Mock thread
-            response.body = {
-                threads: [
-                    new Thread(CustomDebugSession.threadID, "Unique Thread")
-                ]
-            };
-        }
+        // Mock thread
+        response.body = {
+            threads: [
+                new Thread(CustomDebugSession.threadID, "Unique Thread")
+            ]
+        };
 
         this.runtime.updateRuntimeState();
-
         this.sendResponse(response);
     }
 
@@ -238,7 +232,7 @@ export class CustomDebugSession extends DebugSession {
         this.sendResponse(response);
 
         if (args.pauseOnStart)
-            this.sendEvent(new StoppedEvent('stopped', this.runtime.capabilities.supportsThreads ? undefined : CustomDebugSession.threadID));
+            this.sendEvent(new StoppedEvent('stopped', CustomDebugSession.threadID));
     }
 
     /**
@@ -284,7 +278,7 @@ export class CustomDebugSession extends DebugSession {
     protected async nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
         this.sendResponse(response);
 
-        await this.performStepAction(this.runtime.nextStep, args.singleThread ? threadId : undefined);
+        await this.performStepAction(this.runtime.nextStep);
     }
 
     /**
@@ -297,7 +291,7 @@ export class CustomDebugSession extends DebugSession {
     protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments, request?: DebugProtocol.Request | undefined): void {
         this.sendResponse(response);
 
-        this.runtime.run(this.willContinueUntilChoice, args.singleThread ? args.threadId : undefined);
+        this.runtime.run(this.willContinueUntilChoice);
         this.willContinueUntilChoice = false;
     }
 
@@ -362,7 +356,7 @@ export class CustomDebugSession extends DebugSession {
     protected async stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
         this.sendResponse(response);
 
-        await this.performStepAction(this.runtime.stepIn, args.singleThread ? args.threadId : undefined);
+        await this.performStepAction(this.runtime.stepIn);
     }
 
     /**
@@ -377,7 +371,7 @@ export class CustomDebugSession extends DebugSession {
     protected async stepOutRequest(response: DebugProtocol.StepOutResponse, args: DebugProtocol.StepOutArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
         this.sendResponse(response);
 
-        await this.performStepAction(this.runtime.stepOut, args.singleThread ? args.threadId : undefined);
+        await this.performStepAction(this.runtime.stepOut);
     }
 
     /**
@@ -389,24 +383,20 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected async stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
-        if (this.runtime.capabilities.supportsStackTrace) {
-            response.body = (await this.runtime.lrProxy.stackTrace(args)).body;
-        } else {
-            let location: LRP.Location | undefined = await this.runtime.getCurrentLocation();
+        let location: LRP.Location | undefined = await this.runtime.getCurrentLocation();
 
-            const stackFrame: StackFrame = {
-                id: 0,
-                name: 'Main',
-                source: new Source(this.runtime.sourceFile),
-                line: location ? location.line : 0,
-                column: location ? location.column : 0,
-                endLine: location ? location.endLine : undefined,
-                endColumn: location ? location.endColumn : undefined
-            };
+        const stackFrame: StackFrame = {
+            id: 0,
+            name: 'Main',
+            source: new Source(this.runtime.sourceFile),
+            line: location ? location.line : 0,
+            column: location ? location.column : 0,
+            endLine: location ? location.endLine : undefined,
+            endColumn: location ? location.endColumn : undefined
+        };
 
-            response.body = {
-                stackFrames: [stackFrame]
-            }
+        response.body = {
+            stackFrames: [stackFrame]
         }
 
         this.sendResponse(response);
@@ -420,16 +410,12 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected async scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
-        if (this.runtime.capabilities.supportsScopes) {
-            response.body = (await this.runtime.lrProxy.scopes(args)).body;
-        } else {
-            response.body = {
-                scopes: [
-                    new Scope('AST', AST_ROOT_VARIABLES_REFERENCE, false),
-                    new Scope('Runtime State', RUNTIME_STATE_ROOT_VARIABLES_REFERENCE, false)
-                ]
-            };
-        }
+        response.body = {
+            scopes: [
+                new Scope('AST', AST_ROOT_VARIABLES_REFERENCE, false),
+                new Scope('Runtime State', RUNTIME_STATE_ROOT_VARIABLES_REFERENCE, false)
+            ]
+        };
 
         this.sendResponse(response);
     }
@@ -524,19 +510,19 @@ export class CustomDebugSession extends DebugSession {
      * 
      * @param stepFunction The step function , i.e. {@link CustomDebugRuntime.nextStep}
      */
-    private async performStepAction(stepFunction: () => Promise<void>, threadId?: number): Promise<void> {
+    private async performStepAction(stepFunction: () => Promise<void>): Promise<void> {
         if (this.runtime.isExecutionDone) {
             this.sendEvent(new TerminatedEvent());
             this.runtime.terminatedEventSent = true;
             return;
         }
 
-        await stepFunction.call(this.runtime, threadId);
+        await stepFunction.call(this.runtime);
 
         if ((stepFunction == this.runtime.nextStep || stepFunction == this.runtime.stepOut) && !this.runtime.terminatedEventSent)
             await this.runtime.updateAvailableSteps();
 
         if (!this.runtime.terminatedEventSent)
-            this.sendEvent(new StoppedEvent('step', threadId ? threadId : CustomDebugSession.threadID));
+            this.sendEvent(new StoppedEvent('step', CustomDebugSession.threadID));
     }
 }

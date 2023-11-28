@@ -27,8 +27,6 @@ export interface GetBreakpointTypesResponse {
 
 export interface StepArguments extends Arguments {
     /* Thread in which to perform one step. */
-    threadId?: number;
-
     stepId?: string;
 }
 
@@ -153,16 +151,6 @@ export enum PrimitiveType {
     BOOLEAN = 'boolean',
     STRING = 'string',
     NUMBER = 'number'
-}
-
-export interface InitializeResponse {
-    capabilities: LanguageRuntimeCapabilities;
-}
-
-export interface LanguageRuntimeCapabilities {
-    supportsThreads: boolean;
-    supportsStackTrace: boolean;
-    supportsScopes: boolean;
 }
 
 export interface SteppingMode {
