@@ -13,8 +13,11 @@ export interface CustomLaunchRequestArguments extends DebugProtocol.LaunchReques
     /** Port on which the language runtime associated to the source file is listening. */
     languageRuntimePort: number;
 
-    /** True if the program should stop before executing the first step. */
+    /** True if the program should pause before executing the first step. */
     pauseOnStart?: boolean;
+
+    /** True if the program should pause after executing the last step, instead of terminating the debug session. */
+    pauseOnEnd?: boolean;
 
     /** Enabled breakpoint types at the start of execution. */
     enabledBreakpointTypeIds?: string[],
@@ -220,7 +223,7 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected async launchRequest(response: DebugProtocol.LaunchResponse, args: CustomLaunchRequestArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
-        this.runtime = new CustomDebugRuntime(this, args.languageRuntimePort);
+        this.runtime = new CustomDebugRuntime(this, args.languageRuntimePort, args.pauseOnEnd ? args.pauseOnEnd : false);
         await this.runtime.initExecution(args.sourceFile, args.noDebug ? args.noDebug : false, args.additionalArgs);
         this.runtime.breakpointManager.setFormat(this.initializeArgs.linesStartAt1 == undefined ? true : this.initializeArgs.linesStartAt1, this.initializeArgs.columnsStartAt1 == undefined ? true : this.initializeArgs.columnsStartAt1);
 
@@ -290,6 +293,12 @@ export class CustomDebugSession extends DebugSession {
      */
     protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments, request?: DebugProtocol.Request | undefined): void {
         this.sendResponse(response);
+
+        if (this.runtime.isExecutionDone) {
+            this.sendEvent(new TerminatedEvent());
+            this.runtime.terminatedEventSent = true;
+            return;
+        }
 
         this.runtime.run(this.willContinueUntilChoice);
         this.willContinueUntilChoice = false;
@@ -512,8 +521,8 @@ export class CustomDebugSession extends DebugSession {
      */
     private async performStepAction(stepFunction: () => Promise<void>): Promise<void> {
         if (this.runtime.isExecutionDone) {
-            this.sendEvent(new TerminatedEvent());
             this.runtime.terminatedEventSent = true;
+            this.sendEvent(new TerminatedEvent());
             return;
         }
 

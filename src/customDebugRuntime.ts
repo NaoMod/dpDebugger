@@ -26,7 +26,7 @@ export class CustomDebugRuntime {
 
     private _isInitDone: boolean;
 
-    constructor(private debugSession: CustomDebugSession, languageRuntimePort: number) {
+    constructor(private debugSession: CustomDebugSession, languageRuntimePort: number, private pauseOnEnd: boolean) {
         this.lrProxy = new LanguageRuntimeProxy(languageRuntimePort);
         this._isInitDone = false;
         this.terminatedEventSent = false;
@@ -236,8 +236,13 @@ export class CustomDebugRuntime {
             if (await this.mustStopBecauseChoice(continueUntilChoice)) return;
         }
 
-        this.terminatedEventSent = true;
-        this.debugSession.sendEvent(new TerminatedEvent());
+        if (this.pauseOnEnd) {
+            this.updateAvailableSteps();
+            this.sendStoppedEvent('end');
+        } else {
+            this.terminatedEventSent = true;
+            this.debugSession.sendEvent(new TerminatedEvent());
+        }
     }
 
     private async mustStopBecauseChoice(continueUntilChoice: boolean): Promise<boolean> {
