@@ -1,5 +1,4 @@
-import { StoppedEvent, TerminatedEvent, Variable } from "@vscode/debugadapter";
-import { DebugProtocol } from "@vscode/debugprotocol";
+import { TerminatedEvent, Variable } from "@vscode/debugadapter";
 import * as DAPExtension from "./DAPExtension";
 import { ActivatedBreakpoint, CDAPBreakpointManager } from "./breakpointManager";
 import { CustomDebugSession } from "./customDebugSession";
@@ -225,7 +224,7 @@ export class CustomDebugRuntime {
             if (!noDebug) {
                 const isBreakpointActivated: boolean = isFirstStep ? await this.checkBreakpoints(this._stepManager.enabledStep.id) : await this.checkBreakpoints();
                 if (isBreakpointActivated) {
-                    await this.updateAvailableSteps();
+                    if (!isFirstStep) await this.updateAvailableSteps();
                     return;
                 }
             }
@@ -238,7 +237,7 @@ export class CustomDebugRuntime {
 
         if (this.pauseOnEnd) {
             this.updateAvailableSteps();
-            this.sendStoppedEvent('end');
+            this.debugSession.sendStoppedEvent('end');
         } else {
             this.terminatedEventSent = true;
             this.debugSession.sendEvent(new TerminatedEvent());
@@ -250,7 +249,7 @@ export class CustomDebugRuntime {
 
         await this.updateAvailableSteps();
         if (this._stepManager.availableSteps && this._stepManager.availableSteps.length > 1) {
-            this.sendStoppedEvent('choice');
+            this.debugSession.sendStoppedEvent('choice');
             return true;
         }
 
@@ -263,9 +262,14 @@ export class CustomDebugRuntime {
         let completedSteps: string[] = await this.nextAtomicStep(selectedStepId);
 
         while (!this._isExecutionDone && !completedSteps.includes(stepId)) {
-            if (await this.checkBreakpoints()) return;
+            if (await this.checkBreakpoints()) {
+                await this.updateAvailableSteps();
+                return;
+            };
             completedSteps = await this.nextAtomicStep();
         }
+
+        await this.updateAvailableSteps();
     }
 
     /**
@@ -299,14 +303,9 @@ export class CustomDebugRuntime {
         const activatedBreakpoint: ActivatedBreakpoint | undefined = await this._breakpointManager.checkBreakpoints(stepId);
         if (!activatedBreakpoint) return false;
 
-        this.sendStoppedEvent('breakpoint', activatedBreakpoint.message);
+        this.debugSession.sendStoppedEvent('breakpoint', activatedBreakpoint.message);
         return true;
     }
 
-    private sendStoppedEvent(reason: string, message?: string) {
-        const stoppedEvent: DebugProtocol.StoppedEvent = new StoppedEvent(reason, CustomDebugSession.threadID);
-        if (message) stoppedEvent.body.description = message;
-
-        this.debugSession.sendEvent(stoppedEvent);
-    }
+    
 }

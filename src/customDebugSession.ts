@@ -514,6 +514,13 @@ export class CustomDebugSession extends DebugSession {
         this.sendResponse(response);
     }
 
+    public sendStoppedEvent(reason: string, message?: string) {
+        const stoppedEvent: DebugProtocol.StoppedEvent = new StoppedEvent(reason, CustomDebugSession.threadID);
+        if (message) stoppedEvent.body.description = message;
+
+        this.sendEvent(stoppedEvent);
+    }
+
     /**
      * Performs a step action and sends a stopped or terminated event based on the result of the action.
      * 
@@ -528,10 +535,7 @@ export class CustomDebugSession extends DebugSession {
 
         await stepFunction.call(this.runtime);
 
-        if ((stepFunction == this.runtime.nextStep || stepFunction == this.runtime.stepOut) && !this.runtime.terminatedEventSent)
-            await this.runtime.updateAvailableSteps();
-
         if (!this.runtime.terminatedEventSent)
-            this.sendEvent(new StoppedEvent('step', CustomDebugSession.threadID));
+            this.sendStoppedEvent('step');
     }
 }
