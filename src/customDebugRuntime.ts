@@ -24,8 +24,6 @@ export class CustomDebugRuntime {
 
     private _isExecutionDone: boolean;
 
-    private _activatedBreakpoint: ActivatedBreakpoint | undefined;
-
     private _isInitDone: boolean;
 
     constructor(private debugSession: CustomDebugSession, languageRuntimePort: number) {
@@ -89,7 +87,7 @@ export class CustomDebugRuntime {
         if (!this._sourceFile) throw new Error('No sources loaded.');
         if (this._isExecutionDone) throw new Error('Execution is already done.');
 
-        await this.nextCompositeStep(this._stepManager.enabledStep.id);
+        await this.completeStep(this._stepManager.enabledStep.id, this._stepManager.enabledStep.id);
     }
 
     public async stepIn() {
@@ -100,6 +98,7 @@ export class CustomDebugRuntime {
         if (enabledStep.isComposite) {
             await this.updateAvailableSteps(enabledStep.id);
         } else {
+            if (await this.checkBreakpoints(enabledStep.id)) return;
             await this.nextAtomicStep(enabledStep.id);
             await this.updateAvailableSteps();
         }
@@ -110,14 +109,11 @@ export class CustomDebugRuntime {
         if (this._isExecutionDone) throw new Error('Execution is already done.');
 
         if (!this._stepManager.parentStepId) {
-            await this._run(false, true);
+            await this._run(false, false);
             return;
         }
 
-        let completedSteps: string[] = await this.nextAtomicStep(this._stepManager.enabledStep.id);
-        while (!this._isExecutionDone && !completedSteps.includes(this._stepManager.parentStepId)) {
-            completedSteps = await this.nextAtomicStep(undefined);
-        }
+        await this.completeStep(this._stepManager.parentStepId, this._stepManager.enabledStep.id);
     }
 
     /**
@@ -219,10 +215,6 @@ export class CustomDebugRuntime {
         return this._breakpointManager;
     }
 
-    public get activatedBreakpoint(): ActivatedBreakpoint | undefined {
-        return this._activatedBreakpoint;
-    }
-
     public get isInitDone(): boolean {
         return this._isInitDone;
     }
@@ -230,8 +222,15 @@ export class CustomDebugRuntime {
     private async _run(continueUntilChoice: boolean, noDebug: boolean) {
         let isFirstStep: boolean = true;
         while (!this._isExecutionDone) {
-            await this.singleRunStep(noDebug, isFirstStep);
-            if (this._activatedBreakpoint) return;
+            if (!noDebug) {
+                const isBreakpointActivated: boolean = isFirstStep ? await this.checkBreakpoints(this._stepManager.enabledStep.id) : await this.checkBreakpoints();
+                if (isBreakpointActivated) {
+                    await this.updateAvailableSteps();
+                    return;
+                }
+            }
+
+            await this.nextAtomicStep(isFirstStep ? this._stepManager.enabledStep.id : undefined)
 
             isFirstStep = false;
             if (await this.mustStopBecauseChoice(continueUntilChoice)) return;
@@ -241,49 +240,35 @@ export class CustomDebugRuntime {
         this.debugSession.sendEvent(new TerminatedEvent());
     }
 
-    private async singleRunStep(noDebug: boolean, isFirstStep: boolean) {
-        if (!noDebug) {
-            const isBreakpointActivated: boolean = isFirstStep ? await this.checkBreakpoints(this._stepManager.enabledStep.id) : await this.checkBreakpoints();
-            if (isBreakpointActivated) {
-                await this.updateAvailableSteps();
-
-                const stoppedEvent: DebugProtocol.StoppedEvent = new StoppedEvent('breakpoint', CustomDebugSession.threadID);
-                stoppedEvent.body.description = this._activatedBreakpoint!.message
-                this.debugSession.sendEvent(stoppedEvent);
-
-                return;
-            }
-        }
-
-        const args: LRP.StepArguments = {
-            sourceFile: this._sourceFile
-        };
-
-        if (isFirstStep) args.stepId = this._stepManager.enabledStep.id;
-
-        this._isExecutionDone = (await this.lrProxy.executeStep(args)).isExecutionDone;
-    }
-
     private async mustStopBecauseChoice(continueUntilChoice: boolean): Promise<boolean> {
         if (!continueUntilChoice) return false;
 
         await this.updateAvailableSteps();
         if (this._stepManager.availableSteps && this._stepManager.availableSteps.length > 1) {
-            this.debugSession.sendEvent(new StoppedEvent('choice', CustomDebugSession.threadID));
+            this.sendStoppedEvent('choice');
             return true;
         }
 
         return false;
     }
 
-    private async nextCompositeStep(stepId: string): Promise<void> {
-        let completedSteps: string[] = await this.nextAtomicStep(stepId);
+    private async completeStep(stepId: string, selectedStepId?: string) {
+        if (await this.checkBreakpoints(selectedStepId)) return;
+
+        let completedSteps: string[] = await this.nextAtomicStep(selectedStepId);
 
         while (!this._isExecutionDone && !completedSteps.includes(stepId)) {
-            completedSteps = await this.nextAtomicStep(undefined);
+            if (await this.checkBreakpoints()) return;
+            completedSteps = await this.nextAtomicStep();
         }
     }
 
+    /**
+     * Performs as single atomic step. Won't check breakpoints.
+     * 
+     * @param stepId Id of the user-selected step, if any.
+     * @returns Ids of steps that have been completed after the execution of this atomic step.
+     */
     private async nextAtomicStep(stepId?: string): Promise<string[]> {
         const args: LRP.StepArguments = {
             sourceFile: this._sourceFile
@@ -294,7 +279,6 @@ export class CustomDebugRuntime {
         let stepResponse: LRP.StepResponse = await this.lrProxy.executeStep(args);
         this._isExecutionDone = stepResponse.isExecutionDone;
         this.variableHandler.invalidateRuntime();
-        this._activatedBreakpoint = undefined;
 
         return stepResponse.completedSteps;
     }
@@ -307,7 +291,17 @@ export class CustomDebugRuntime {
      * @returns True if a breakpoint was activated, false otherwise.
      */
     private async checkBreakpoints(stepId?: string): Promise<boolean> {
-        this._activatedBreakpoint = await this._breakpointManager.checkBreakpoints(stepId);
-        return this._activatedBreakpoint != undefined;
+        const activatedBreakpoint: ActivatedBreakpoint | undefined = await this._breakpointManager.checkBreakpoints(stepId);
+        if (!activatedBreakpoint) return false;
+
+        this.sendStoppedEvent('breakpoint', activatedBreakpoint.message);
+        return true;
+    }
+
+    private sendStoppedEvent(reason: string, message?: string) {
+        const stoppedEvent: DebugProtocol.StoppedEvent = new StoppedEvent(reason, CustomDebugSession.threadID);
+        if (message) stoppedEvent.body.description = message;
+
+        this.debugSession.sendEvent(stoppedEvent);
     }
 }
