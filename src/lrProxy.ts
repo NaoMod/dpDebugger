@@ -107,10 +107,6 @@ export class LanguageRuntimeProxy extends Proxy {
         return this.request('checkBreakpoint', [args]);
     }
 
-    public async getSteppingModes(): Promise<LRP.GetSteppingModesResponse> {
-        return this.request('getSteppingModes', []);
-    }
-
     public async getAvailableSteps(args: LRP.GetAvailableStepsArguments): Promise<LRP.GetAvailableStepsResponse> {
         return this.request('getAvailableSteps', [args]);
     }

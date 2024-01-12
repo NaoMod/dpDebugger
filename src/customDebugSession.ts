@@ -467,20 +467,6 @@ export class CustomDebugSession extends DebugSession {
 
                 break;
 
-            case 'getSteppingModes':
-                const steppingModeBody: DAPExtension.GetSteppingModesResponse = {
-                    steppingModes: this.runtime.getAvailableSteppingModes()
-                };
-
-                response.body = steppingModeBody;
-
-                break;
-
-            case 'enableSteppingMode':
-                this.runtime.enableSteppingMode(args.steppingModeId);
-
-                break;
-
             case 'getAvailableSteps':
                 const availableStepsBody: DAPExtension.GetAvailableStepsResponse = {
                     availableSteps: this.runtime.getAvailableSteps()

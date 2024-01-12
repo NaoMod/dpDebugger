@@ -153,19 +153,7 @@ export enum PrimitiveType {
     NUMBER = 'number'
 }
 
-export interface SteppingMode {
-    id: string;
-    name: string;
-    description: string;
-}
-
-export interface GetSteppingModesResponse {
-    steppingModes: SteppingMode[];
-}
-
 export interface GetAvailableStepsArguments extends Arguments {
-    steppingModeId: string;
-
     /** If no id, return the top-level steps. */
     compositeStepId?: string;
 }

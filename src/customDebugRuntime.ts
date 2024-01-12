@@ -47,10 +47,9 @@ export class CustomDebugRuntime {
         const parseResponse: LRP.ParseResponse = await this.lrProxy.parse({ sourceFile: sourceFile });
         const initResponse: LRP.InitResponse = await this.lrProxy.initExecution({ sourceFile: sourceFile, ...additionalArgs });
         const getBreakpointTypes: LRP.GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
-        const getSteppingModesResponse: LRP.GetSteppingModesResponse = await this.lrProxy.getSteppingModes();
 
         this._breakpointManager = new CDAPBreakpointManager(sourceFile, this.lrProxy, parseResponse.astRoot, getBreakpointTypes.breakpointTypes);
-        this._stepManager = new StepManager(getSteppingModesResponse.steppingModes);
+        this._stepManager = new StepManager();
         this.variableHandler = new VariableHandler(parseResponse.astRoot);
         this._isExecutionDone = initResponse.isExecutionDone;
 
@@ -140,21 +139,6 @@ export class CustomDebugRuntime {
         this.variableHandler.updateRuntime(getRuntimeStateResponse.runtimeStateRoot);
     }
 
-    public enableSteppingMode(steppingModeId: string) {
-        this._stepManager.enableSteppingMode(steppingModeId);
-    }
-
-    public getAvailableSteppingModes(): DAPExtension.SteppingMode[] {
-        return this._stepManager.availableSteppingModes.map(mode => {
-            return {
-                id: mode.id,
-                name: mode.name,
-                description: mode.description,
-                isEnabled: this._stepManager.enabledSteppingMode.id == mode.id
-            };
-        });
-    }
-
     public getAvailableSteps(): DAPExtension.Step[] {
         return this._stepManager.availableSteps.map((step, i) => {
             return {
@@ -169,7 +153,6 @@ export class CustomDebugRuntime {
     public async updateAvailableSteps(stepId?: string): Promise<void> {
         const stepsArgs: LRP.GetAvailableStepsArguments = {
             sourceFile: this._sourceFile,
-            steppingModeId: this._stepManager.enabledSteppingMode.id
         }
 
         if (stepId) stepsArgs.compositeStepId = stepId;
@@ -307,5 +290,5 @@ export class CustomDebugRuntime {
         return true;
     }
 
-    
+
 }
