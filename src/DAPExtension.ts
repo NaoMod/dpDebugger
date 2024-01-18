@@ -1,4 +1,4 @@
-interface Arguments {
+type Arguments = {
     /** Source file targeted by the service call. */
     sourceFile: string;
 }
@@ -6,13 +6,13 @@ interface Arguments {
 /**
  * Item represented as a leaf in a tree view.
  */
-interface Leaf {
+type Leaf = {
     /** Unique identifier of the item. */
     id: string;
 
     /** Human-readable name of the item. */
     name: string;
-    
+
     /** Human-readable description of the item. */
     description: string;
 
@@ -23,12 +23,12 @@ interface Leaf {
 /**
  * Breakpoint type defined by the language runtime.
  */
- export interface BreakpointType extends Leaf {
+export type BreakpointType = Leaf & {
     /** Type of the elements targeted by this breakpoint type. */
     targetElementTypeId: string;
 }
 
-export interface GetBreakpointTypesResponse {
+export type GetBreakpointTypesResponse = {
     /** Breakpoint types defined by the language runtime. */
     breakpointTypes: BreakpointType[];
 }
@@ -36,26 +36,13 @@ export interface GetBreakpointTypesResponse {
 /**
  * Arguments to request the enablement of certain breakpoint types.
  */
-export interface EnableBreakpointTypesArgs extends Arguments {
+export type EnableBreakpointTypesArguments = Arguments & {
     /** Breakpoint types to enable. */
     breakpointTypeIds: string[];
 }
 
-/**
- * Stepping modes defined by the language runtime.
- */
-export interface SteppingMode extends Leaf { }
+export type Step = Leaf;
 
-/**
- * Response containing the stepping modes defined by the language runtime.
- */
-export interface GetSteppingModesResponse {
-    /** Stepping modes defined by the language runtime. */
-    steppingModes: SteppingMode[];
-}
-
-export interface Step extends Leaf { }
-
-export interface GetAvailableStepsResponse {
+export type GetAvailableStepsResponse = {
     availableSteps: Step[];
 }
