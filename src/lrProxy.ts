@@ -63,8 +63,8 @@ export class LanguageRuntimeProxy extends Proxy {
      * @param args The arguments of the request.
      * @returns The LRP response to the request.
      */
-    public async initExecution(args: LRP.InitArguments): Promise<LRP.InitResponse> {
-        return this.request('initExecution', [args]);
+    public async initializeExecution(args: LRP.InitializeExecutionArguments): Promise<LRP.InitializeExecutionResponse> {
+        return this.request('initializeExecution', [args]);
     }
 
     /**
@@ -74,8 +74,8 @@ export class LanguageRuntimeProxy extends Proxy {
      * @param args The arguments of the request.
      * @returns The LRP response to the request.
      */
-    public async executeStep(args: LRP.StepArguments): Promise<LRP.StepResponse> {
-        return this.request('executeStep', [args]);
+    public async executeAtomicStep(args: LRP.ExecuteAtomicStepArguments): Promise<LRP.ExecuteAtomicStepResponse> {
+        return this.request('executeAtomicStep', [args]);
     }
 
     /**
@@ -109,6 +109,10 @@ export class LanguageRuntimeProxy extends Proxy {
 
     public async getAvailableSteps(args: LRP.GetAvailableStepsArguments): Promise<LRP.GetAvailableStepsResponse> {
         return this.request('getAvailableSteps', [args]);
+    }
+
+    public async enterCompositeStep(args: LRP.EnterCompositeStepArguments): Promise<LRP.EnterCompositeStepResponse> {
+        return this.request('enterCompositeStep', [args]);
     }
 
     public async getStepLocation(args: LRP.GetStepLocationArguments): Promise<LRP.GetStepLocationResponse> {

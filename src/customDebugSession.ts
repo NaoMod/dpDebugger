@@ -43,7 +43,6 @@ export class CustomDebugSession extends DebugSession {
     private isInitialized: boolean = false;
     private runtime: CustomDebugRuntime;
     private initializeArgs: DebugProtocol.InitializeRequestArguments;
-    private willContinueUntilChoice: boolean = false;
 
     /**
      * 
@@ -229,13 +228,15 @@ export class CustomDebugSession extends DebugSession {
 
         if (args.enabledBreakpointTypeIds) this.runtime.breakpointManager.enableBreakpointTypes(args.enabledBreakpointTypeIds);
 
-        if (!args.pauseOnStart) this.runtime.run(false);
-
-        await this.runtime.updateAvailableSteps();
         this.sendResponse(response);
 
-        if (args.pauseOnStart)
+        if (args.pauseOnStart) {
+            await this.runtime.updateAvailableSteps();
             this.sendEvent(new StoppedEvent('stopped', CustomDebugSession.threadID));
+            return;
+        }
+
+        this.runtime.run();
     }
 
     /**
@@ -281,7 +282,13 @@ export class CustomDebugSession extends DebugSession {
     protected async nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
         this.sendResponse(response);
 
-        await this.performStepAction(this.runtime.nextStep);
+        if (this.runtime.isExecutionDone) {
+            this.runtime.terminatedEventSent = true;
+            this.sendTerminatedEvent();
+            return;
+        }
+
+        this.runtime.nextStep();
     }
 
     /**
@@ -295,13 +302,12 @@ export class CustomDebugSession extends DebugSession {
         this.sendResponse(response);
 
         if (this.runtime.isExecutionDone) {
-            this.sendEvent(new TerminatedEvent());
             this.runtime.terminatedEventSent = true;
+            this.sendTerminatedEvent();
             return;
         }
 
-        this.runtime.run(this.willContinueUntilChoice);
-        this.willContinueUntilChoice = false;
+        this.runtime.run();
     }
 
     /**
@@ -365,7 +371,13 @@ export class CustomDebugSession extends DebugSession {
     protected async stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
         this.sendResponse(response);
 
-        await this.performStepAction(this.runtime.stepIn);
+        if (this.runtime.isExecutionDone) {
+            this.runtime.terminatedEventSent = true;
+            this.sendTerminatedEvent();
+            return;
+        }
+
+        this.runtime.stepIn();
     }
 
     /**
@@ -380,7 +392,12 @@ export class CustomDebugSession extends DebugSession {
     protected async stepOutRequest(response: DebugProtocol.StepOutResponse, args: DebugProtocol.StepOutArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
         this.sendResponse(response);
 
-        await this.performStepAction(this.runtime.stepOut);
+        if (this.runtime.isExecutionDone) {
+            this.runtime.terminatedEventSent = true;
+            this.sendTerminatedEvent();
+            return;
+        }
+        this.runtime.stepOut();
     }
 
     /**
@@ -477,13 +494,8 @@ export class CustomDebugSession extends DebugSession {
                 break;
 
             case 'enableStep':
-                this.runtime.enableStep(args ? args.stepId : undefined);
+                this.runtime.enableStep(args.stepId);
                 this.sendEvent(new InvalidatedEvent(['stacks']));
-
-                break;
-
-            case 'willContinueUntilChoice':
-                this.willContinueUntilChoice = true;
 
                 break;
 
@@ -507,21 +519,7 @@ export class CustomDebugSession extends DebugSession {
         this.sendEvent(stoppedEvent);
     }
 
-    /**
-     * Performs a step action and sends a stopped or terminated event based on the result of the action.
-     * 
-     * @param stepFunction The step function , i.e. {@link CustomDebugRuntime.nextStep}
-     */
-    private async performStepAction(stepFunction: () => Promise<void>): Promise<void> {
-        if (this.runtime.isExecutionDone) {
-            this.runtime.terminatedEventSent = true;
-            this.sendEvent(new TerminatedEvent());
-            return;
-        }
-
-        await stepFunction.call(this.runtime);
-
-        if (!this.runtime.terminatedEventSent)
-            this.sendStoppedEvent('step');
+    public sendTerminatedEvent() {
+        this.sendEvent(new TerminatedEvent());
     }
 }

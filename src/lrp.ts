@@ -1,50 +1,46 @@
-interface Arguments {
+type Arguments = {
     /** Source file targeted by the service call. */
     sourceFile: string;
 }
 
-export interface ParseArguments extends Arguments { }
+export type ParseArguments = Arguments;
 
-export interface ParseResponse {
+export type ParseResponse = {
     /** Root of the AST. */
     astRoot: ModelElement;
 }
 
-export interface InitArguments extends Arguments {
+export type InitializeExecutionArguments = Arguments & {
     /** Arbitrary argument necessary for the initialization of a runtime state. */
     [additionalArg: string]: unknown;
 }
 
-export interface InitResponse {
-    /** True if the execution is done, false otherwise. */
-    isExecutionDone: boolean;
-}
+export type InitializeExecutionResponse = { };
 
-export interface GetBreakpointTypesResponse {
+export type GetBreakpointTypesResponse = {
     /** Breakpoint types defined by the language runtime. */
     breakpointTypes: BreakpointType[];
 }
 
-export interface StepArguments extends Arguments {
-    /* Thread in which to perform one step. */
-    stepId?: string;
+export type ExecuteAtomicStepArguments = Arguments & {
+    /** Identifier of the step. */
+    stepId: string;
 }
 
-export interface StepResponse {
-    /** True if the execution is done, false otherwise. */
-    isExecutionDone: boolean;
+export type ExecuteAtomicStepResponse = {
     completedSteps: string[];
 }
 
-export interface GetRuntimeStateArguments extends Arguments { }
+export type GetRuntimeStateArguments = Arguments;
 
-export interface GetRuntimeStateResponse {
+export type GetRuntimeStateResponse = {
     /** Root of the runtime state. */
     runtimeStateRoot: ModelElement;
 }
 
-export interface CheckBreakpointArguments extends Arguments {
-    stepId?: string;
+export type CheckBreakpointArguments = Arguments & {
+    /** Identifier of the step. */
+    stepId: string;
 
     /** Identifier of the breakpoint type. */
     typeId: string;
@@ -53,21 +49,25 @@ export interface CheckBreakpointArguments extends Arguments {
     elementId: string;
 }
 
-export interface CheckBreakpointResponse {
-    /** True if the breakpoint is activated, false otherwise. */
-    isActivated: boolean;
+export type CheckBreakpointResponse = PositiveCheckBreakpointResponse | NegativeCheckBreakpointResponse;
 
-    /** 
-     * Human-readable message to describe the cause of activation.
-     * Should only be set if `isActivated` is true.
-     */
-    message?: string;
+type PositiveCheckBreakpointResponse = {
+    /** True if the breakpoint is activated, false otherwise. */
+    isActivated: true;
+
+    /** Human-readable message to describe the cause of activation. */
+    message: string;
+}
+
+type NegativeCheckBreakpointResponse = {
+    /** True if the breakpoint is activated, false otherwise. */
+    isActivated: false;
 }
 
 /**
  * Element of the AST or runtime state.
  */
-export interface ModelElement {
+export type ModelElement = {
     /** Unique identifier of the element. */
     id: string;
 
@@ -90,7 +90,7 @@ export interface ModelElement {
 /**
  * Location in a textual source file.
  */
-export interface Location {
+export type Location = {
     /** Starting line. */
     line: number;
 
@@ -107,7 +107,7 @@ export interface Location {
 /**
  * Breakpoint type defined by the language runtime.
  */
-export interface BreakpointType {
+export type BreakpointType = {
     /** Unique identifier of the breakpoint type. */
     id: string;
 
@@ -124,7 +124,7 @@ export interface BreakpointType {
 /**
  * Parameter required by a breakpoint type.
  */
-export interface BreakpointParameter {
+export type BreakpointParameter = {
     /** Name of the parameter. */
     name: string;
 
@@ -153,27 +153,30 @@ export enum PrimitiveType {
     NUMBER = 'number'
 }
 
-export interface GetAvailableStepsArguments extends Arguments {
-    /** If no id, return the top-level steps. */
-    compositeStepId?: string;
-}
+export type GetAvailableStepsArguments = Arguments;
 
-export interface GetAvailableStepsResponse {
-    parentStepId?: string; 
+export type GetAvailableStepsResponse = {
+    parentStepId?: string;
     availableSteps: Step[];
 }
 
-export interface Step {
+export type EnterCompositeStepArguments = Arguments & {
+    stepId: string;
+};
+
+export type EnterCompositeStepResponse = { };
+
+export type Step = {
     id: string;
     name: string;
-    description?: string;
     isComposite: boolean;
+    description?: string;
 }
 
-export interface GetStepLocationArguments extends Arguments {
+export type GetStepLocationArguments = Arguments & {
     stepId: string;
 }
 
-export interface GetStepLocationResponse {
+export type GetStepLocationResponse = {
     location?: Location;
 }
