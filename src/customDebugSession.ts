@@ -480,7 +480,9 @@ export class CustomDebugSession extends DebugSession {
                 break;
 
             case 'enableBreakpointTypes':
-                this.runtime.breakpointManager.enableBreakpointTypes(args.breakpointTypeIds);
+                if (this.isEnableBreakpointTypesArguments(args)) {
+                    this.runtime.breakpointManager.enableBreakpointTypes(args.breakpointTypeIds);
+                }
 
                 break;
 
@@ -494,8 +496,10 @@ export class CustomDebugSession extends DebugSession {
                 break;
 
             case 'enableStep':
-                this.runtime.enableStep(args.stepId);
-                this.sendEvent(new InvalidatedEvent(['stacks']));
+                if (this.isEnableStepArguments(args)) {
+                    this.runtime.enableStep(args.stepId);
+                    this.sendEvent(new InvalidatedEvent(['stacks']));
+                }
 
                 break;
 
@@ -521,5 +525,15 @@ export class CustomDebugSession extends DebugSession {
 
     public sendTerminatedEvent() {
         this.sendEvent(new TerminatedEvent());
+    }
+
+    private isEnableStepArguments(args: any): args is DAPExtension.EnableStepArguments {
+        const entries: [string, unknown][] = Object.entries(args);
+        return entries.length == 1 && entries[0][0] === 'stepId';
+    }
+
+    private isEnableBreakpointTypesArguments(args: any): args is DAPExtension.EnableBreakpointTypesArguments {
+        const entries: [string, unknown][] = Object.entries(args);
+        return entries.length == 1 && entries[0][0] === 'breakpointTypeIds';
     }
 }

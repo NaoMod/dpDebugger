@@ -24,8 +24,8 @@ type Leaf = {
  * Breakpoint type defined by the language runtime.
  */
 export type BreakpointType = Leaf & {
-    /** Type of the elements targeted by this breakpoint type. */
-    targetElementTypeId: string;
+    /** Type of the element targeted by this breakpoint type. */
+    targetElementTypeId?: string;
 }
 
 export type GetBreakpointTypesResponse = {
@@ -42,6 +42,13 @@ export type EnableBreakpointTypesArguments = Arguments & {
 }
 
 export type Step = Leaf;
+
+/**
+ * Arguments to request the enablement of a certain step.
+ */
+export type EnableStepArguments = Arguments & {
+    stepId: string;
+}
 
 export type GetAvailableStepsResponse = {
     availableSteps: Step[];

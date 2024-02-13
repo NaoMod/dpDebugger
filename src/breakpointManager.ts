@@ -162,14 +162,20 @@ export class CDAPBreakpointManager {
      * Fetches the currently available breakpoint types.
      */
     public get availableBreakpointTypes(): DAPExtension.BreakpointType[] {
-        return this._availableBreakpointTypes.map(breakpointType => {
-            return {
-                name: breakpointType.name,
-                id: breakpointType.id,
-                targetElementTypeId: breakpointType.parameters[0].objectType!,
-                description: breakpointType.description,
-                isEnabled: this.isBreakpointTypeEnabled(breakpointType)
-            }
+        return this._availableBreakpointTypes
+            .reduce<LRP.BreakpointType[]>((acc, breakpointType) => breakpointType.parameters.length == 0 || (breakpointType.parameters.length == 1 && breakpointType.parameters[0].objectType !== undefined) ? [...acc, breakpointType] : acc, [])
+            .map(breakpointType => {
+                const res: DAPExtension.BreakpointType = {
+                    name: breakpointType.name,
+                    id: breakpointType.id,
+                    description: breakpointType.description,
+                    isEnabled: this.isBreakpointTypeEnabled(breakpointType)
+                };
+
+                if (breakpointType.parameters.length == 0) return res;
+
+                res.targetElementTypeId = breakpointType.parameters[0].objectType!;
+                return res;
         });
     }
 
