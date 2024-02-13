@@ -13,7 +13,7 @@ export class CDAPBreakpointManager {
     private astElementRegistry: ASTElementRegistry;
 
     readonly _availableBreakpointTypes: LRP.BreakpointType[];
-    private enabledBreakpointTypes: Map<string, LRP.BreakpointType[]>;
+    private enabledBreakpointTypes: Map<string | null, LRP.BreakpointType[]>;
     private elementsWithBreakpoints: Set<LRP.ModelElement>;
     private activatedBreakpoints: Set<LRP.ModelElement>;
 
@@ -32,9 +32,9 @@ export class CDAPBreakpointManager {
 
         this.enabledBreakpointTypes = new Map();
         for (const breakpointType of availableBreakpointTypes) {
-            if (breakpointType.parameters.length != 1) continue;
-            const targetElementType: string | undefined = breakpointType.parameters[0].objectType;
-            if (targetElementType === undefined) continue;
+            if (breakpointType.parameters.length > 1 || (breakpointType.parameters.length == 1 && breakpointType.parameters[0].type == "primitive")) continue;
+            
+            const targetElementType: string | null = breakpointType.parameters.length == 1 && breakpointType.parameters[0].type == 'object' ? breakpointType.parameters[0].objectType : null;
 
             if (!this.enabledBreakpointTypes.has(targetElementType)) this.enabledBreakpointTypes.set(targetElementType, []);
             this._availableBreakpointTypes.push(breakpointType);
@@ -106,7 +106,7 @@ export class CDAPBreakpointManager {
                 continue;
             }
 
-            const hasPossibleBreakpointType: boolean = this._availableBreakpointTypes.find(breakpointType => breakpointType.parameters[0].objectType! === element.type) !== undefined;
+            const hasPossibleBreakpointType: boolean = this._availableBreakpointTypes.find(breakpointType => breakpointType.parameters.length == 1 && breakpointType.parameters[0].type == "object" && breakpointType.parameters[0].objectType! === element.type) !== undefined;
             if (!hasPossibleBreakpointType) {
                 setBreakpoints.push(new Breakpoint(false));
                 continue;
@@ -152,9 +152,9 @@ export class CDAPBreakpointManager {
 
             if (!breakpointType) continue;
 
-            const targetType: string = breakpointType.parameters[0].objectType!;
-            if (!this.enabledBreakpointTypes.has(targetType)) this.enabledBreakpointTypes.set(targetType, []);
-            this.enabledBreakpointTypes.get(targetType)!.push(breakpointType);
+            const targetElementType: string | null = breakpointType.parameters.length == 1 && breakpointType.parameters[0].type == 'object' ? breakpointType.parameters[0].objectType : null;
+            if (!this.enabledBreakpointTypes.has(targetElementType)) this.enabledBreakpointTypes.set(targetElementType, []);
+            this.enabledBreakpointTypes.get(targetElementType)!.push(breakpointType);
         }
     }
 
@@ -162,9 +162,7 @@ export class CDAPBreakpointManager {
      * Fetches the currently available breakpoint types.
      */
     public get availableBreakpointTypes(): DAPExtension.BreakpointType[] {
-        return this._availableBreakpointTypes
-            .reduce<LRP.BreakpointType[]>((acc, breakpointType) => breakpointType.parameters.length == 0 || (breakpointType.parameters.length == 1 && breakpointType.parameters[0].objectType !== undefined) ? [...acc, breakpointType] : acc, [])
-            .map(breakpointType => {
+        return this._availableBreakpointTypes.map(breakpointType => {
                 const res: DAPExtension.BreakpointType = {
                     name: breakpointType.name,
                     id: breakpointType.id,
@@ -173,8 +171,9 @@ export class CDAPBreakpointManager {
                 };
 
                 if (breakpointType.parameters.length == 0) return res;
+                if (breakpointType.parameters[0].type == 'primitive') throw new Error('Object breakpoint parameter expected.');
 
-                res.targetElementTypeId = breakpointType.parameters[0].objectType!;
+                res.targetElementTypeId = breakpointType.parameters[0].objectType;
                 return res;
         });
     }
@@ -186,7 +185,9 @@ export class CDAPBreakpointManager {
      * @returns True if the breakpoint type is currently enabled, false otherwise.
      */
     private isBreakpointTypeEnabled(breakpointType: LRP.BreakpointType): boolean {
-        const enabledBreakpointTypesForTargetType: LRP.BreakpointType[] | undefined = this.enabledBreakpointTypes.get(breakpointType.parameters[0].objectType!);
+        if (!this._availableBreakpointTypes.includes(breakpointType)) return false;
+        
+        const enabledBreakpointTypesForTargetType: LRP.BreakpointType[] | undefined = breakpointType.parameters.length == 1 && breakpointType.parameters[0].type == 'object' ? this.enabledBreakpointTypes.get(breakpointType.parameters[0].objectType) : this.enabledBreakpointTypes.get(null);
         return enabledBreakpointTypesForTargetType !== undefined && enabledBreakpointTypesForTargetType.includes(breakpointType);
     }
 }

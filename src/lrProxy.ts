@@ -68,17 +68,6 @@ export class LanguageRuntimeProxy extends Proxy {
     }
 
     /**
-     * Asks the language runtime to perform an execution step in the runtime state associated to a given source file.
-     * The possible steps are ecposed by the language runtime through the {@link getAvailableSteps} service.
-     * 
-     * @param args The arguments of the request.
-     * @returns The LRP response to the request.
-     */
-    public async executeAtomicStep(args: LRP.ExecuteAtomicStepArguments): Promise<LRP.ExecuteAtomicStepResponse> {
-        return this.request('executeAtomicStep', [args]);
-    }
-
-    /**
      * Asks the language runtime to return the current runtime state for a given source file.
      * 
      * @param args The arguments of the request.
@@ -113,6 +102,17 @@ export class LanguageRuntimeProxy extends Proxy {
 
     public async enterCompositeStep(args: LRP.EnterCompositeStepArguments): Promise<LRP.EnterCompositeStepResponse> {
         return this.request('enterCompositeStep', [args]);
+    }
+
+    /**
+     * Asks the language runtime to perform a single atomic step in the runtime state associated to a given source file.
+     * The possible steps are exposed by the language runtime through the {@link getAvailableSteps} service.
+     * 
+     * @param args The arguments of the request.
+     * @returns The LRP response to the request.
+     */
+    public async executeAtomicStep(args: LRP.ExecuteAtomicStepArguments): Promise<LRP.ExecuteAtomicStepResponse> {
+        return this.request('executeAtomicStep', [args]);
     }
 
     public async getStepLocation(args: LRP.GetStepLocationArguments): Promise<LRP.GetStepLocationResponse> {
