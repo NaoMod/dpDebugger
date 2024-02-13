@@ -11,11 +11,19 @@ export type ParseResponse = {
 }
 
 export type InitializeExecutionArguments = Arguments & {
-    /** Arbitrary argument necessary for the initialization of a runtime state. */
-    [additionalArg: string]: unknown;
+    /** Arbitrary arguments necessary for the initialization of a runtime state. */
+    bindings: Bindings;
 }
 
-export type InitializeExecutionResponse = { };
+export type InitializeExecutionResponse = {};
+
+/**
+ * Bindings to model elements or literal values. 
+ */
+export type Bindings = {
+    /** Properties with arbitrary key and value. */
+    [key: string]: unknown;
+}
 
 export type GetBreakpointTypesResponse = {
     /** Breakpoint types defined by the language runtime. */
@@ -45,8 +53,8 @@ export type CheckBreakpointArguments = Arguments & {
     /** Identifier of the breakpoint type. */
     typeId: string;
 
-    /** Identifier of the model element. */
-    elementId: string;
+    /** Arbitrary arguments required to check the breakpoint. */
+    bindings: Bindings;
 }
 
 export type CheckBreakpointResponse = PositiveCheckBreakpointResponse | NegativeCheckBreakpointResponse;
@@ -71,8 +79,8 @@ export type ModelElement = {
     /** Unique identifier of the element. */
     id: string;
 
-    /** Type of the element. */
-    type: string;
+    /** Types of the element. At least one type must be specified. */
+    types: string[];
 
     /** Containment relations with other elements. */
     children: { [key: string]: ModelElement | ModelElement[]; };
@@ -181,7 +189,7 @@ export type EnterCompositeStepArguments = Arguments & {
     stepId: string;
 };
 
-export type EnterCompositeStepResponse = { };
+export type EnterCompositeStepResponse = {};
 
 export type Step = {
     id: string;

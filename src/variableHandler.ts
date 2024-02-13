@@ -167,7 +167,7 @@ export class VariableHandler {
 
         if (Array.isArray(object)) return new Variable(name, 'Array[' + object.length + ']', this.getReference(object), object.length);
 
-        if (this.isModelElement(object)) return new Variable(name, object.type, this.getReference(object));
+        if (this.isModelElement(object)) return new Variable(name, `[${object.types.join(', ')}]`, this.getReference(object));
         if (typeof object === 'object') throw new Error('Malformed model element.');
 
         return new Variable(name, JSON.stringify(object));
@@ -193,7 +193,7 @@ export class VariableHandler {
         if (referencedObject === undefined) referencedObject = this.idToRuntimeStateElement.get(ref);
         if (referencedObject === undefined) throw new Error('Reference ' + ref + ' is invalid.');
 
-        return new Variable(name, referencedObject.type, this.getReference(referencedObject));
+        return new Variable(name, `[${referencedObject.types.join(', ')}]`, this.getReference(referencedObject));
 
     }
 
@@ -225,7 +225,7 @@ export class VariableHandler {
         // will break when ModelElement is changed
         class ModelElementImpl implements LRP.ModelElement {
             id: string;
-            type: string;
+            types: string[];
             children: { [key: string]: LRP.ModelElement | LRP.ModelElement[]; };
             refs: { [key: string]: string | string[]; };
             attributes: { [key: string]: any; };
