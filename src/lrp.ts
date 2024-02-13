@@ -132,19 +132,19 @@ export type BreakpointType = {
 /**
  * Parameter required by a breakpoint type.
  */
-export type BreakpointParameter = PrimitiveBreakpointParameter | ObjectBreakpointParameter;
+export type BreakpointParameter = {
+    /** Name of the parameter. */
+    name: string;
+
+    /** True is the parameter is a collection, false otherwise. */
+    isMultivalued: boolean;
+} & (PrimitiveBreakpointParameter | ObjectBreakpointParameter);
 
 /**
  * Primitive breakpoint parameter.
  */
 export type PrimitiveBreakpointParameter = {
     type: 'primitive';
-
-    /** Name of the parameter. */
-    name: string;
-
-    /** True is the parameter is a collection, false otherwise. */
-    isMultivalued: boolean;
 
     /** Primitive type of the parameter. */
     primitiveType: PrimitiveType;
@@ -156,15 +156,9 @@ export type PrimitiveBreakpointParameter = {
 export type ObjectBreakpointParameter = {
     type: 'object';
 
-    /** Name of the parameter. */
-    name: string;
-
-    /** True is the parameter is a collection, false otherwise. */
-    isMultivalued: boolean;
-
     /**
      * Object type of the parameter.
-     * If the object is a model element, the type is the same as dined in {@link ModelElement.type}.
+     * If the object is a model element, the type is the same as defined in {@link ModelElement.type}.
      */
     objectType: string;
 }
