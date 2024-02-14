@@ -88,10 +88,9 @@ export class CustomDebugSession extends DebugSession {
 
         response.body = {};
 
-        // This default debug adapter supports conditional breakpoints.
-        response.body.supportsConditionalBreakpoints = true;
-        response.body.supportsSingleThreadExecutionRequests = true;
-
+        // This default debug adapter does not support conditional breakpoints.
+        response.body.supportsConditionalBreakpoints = false;
+        response.body.supportsSingleThreadExecutionRequests = false;
         /** The debug adapter does not support the 'breakpointLocations' request. */
         response.body.supportsBreakpointLocationsRequest = false;
         // This default debug adapter does not support hit conditional breakpoints.
@@ -231,7 +230,6 @@ export class CustomDebugSession extends DebugSession {
         this.sendResponse(response);
 
         if (args.pauseOnStart) {
-            await this.runtime.updateAvailableSteps();
             this.sendEvent(new StoppedEvent('stopped', CustomDebugSession.threadID));
             return;
         }
@@ -281,13 +279,6 @@ export class CustomDebugSession extends DebugSession {
      */
     protected async nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
         this.sendResponse(response);
-
-        if (this.runtime.isExecutionDone) {
-            this.runtime.terminatedEventSent = true;
-            this.sendTerminatedEvent();
-            return;
-        }
-
         this.runtime.nextStep();
     }
 
@@ -300,13 +291,6 @@ export class CustomDebugSession extends DebugSession {
      */
     protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments, request?: DebugProtocol.Request | undefined): void {
         this.sendResponse(response);
-
-        if (this.runtime.isExecutionDone) {
-            this.runtime.terminatedEventSent = true;
-            this.sendTerminatedEvent();
-            return;
-        }
-
         this.runtime.run();
     }
 
@@ -370,13 +354,6 @@ export class CustomDebugSession extends DebugSession {
      */
     protected async stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
         this.sendResponse(response);
-
-        if (this.runtime.isExecutionDone) {
-            this.runtime.terminatedEventSent = true;
-            this.sendTerminatedEvent();
-            return;
-        }
-
         this.runtime.stepIn();
     }
 
@@ -391,12 +368,6 @@ export class CustomDebugSession extends DebugSession {
      */
     protected async stepOutRequest(response: DebugProtocol.StepOutResponse, args: DebugProtocol.StepOutArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
         this.sendResponse(response);
-
-        if (this.runtime.isExecutionDone) {
-            this.runtime.terminatedEventSent = true;
-            this.sendTerminatedEvent();
-            return;
-        }
         this.runtime.stepOut();
     }
 
