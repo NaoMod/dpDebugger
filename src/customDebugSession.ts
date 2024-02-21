@@ -208,7 +208,7 @@ export class CustomDebugSession extends DebugSession {
             ]
         };
 
-        this.runtime.updateRuntimeState();
+        await this.runtime.updateRuntimeState();
         this.sendResponse(response);
     }
 

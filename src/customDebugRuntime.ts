@@ -45,7 +45,7 @@ export class CustomDebugRuntime {
 
         const parseResponse: LRP.ParseResponse = await this.lrProxy.parse({ sourceFile: sourceFile });
 
-        await this.lrProxy.initializeExecution({ sourceFile: sourceFile, ...additionalArgs });
+        await this.lrProxy.initializeExecution({ sourceFile: sourceFile, bindings: {...additionalArgs} });
 
         const getBreakpointTypes: LRP.GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
         this._breakpointManager = new CDAPBreakpointManager(sourceFile, this.lrProxy, parseResponse.astRoot, getBreakpointTypes.breakpointTypes);
@@ -98,10 +98,10 @@ export class CustomDebugRuntime {
         }
         if (this._stepManager.enabledStep == undefined) throw new Error('No step enabled.');
 
-        const targetCompositeStep: LRP.Step = this._stepManager.enabledStep;
+        const targetStep: LRP.Step = this._stepManager.enabledStep;
         let completedSteps: string[] = [];
 
-        while (!this._isExecutionDone && !completedSteps.includes(targetCompositeStep.id)) {
+        while (!this._isExecutionDone) {
             let currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
             if (currentStep == undefined) throw new Error('No step currently enabled.');
 
@@ -123,16 +123,16 @@ export class CustomDebugRuntime {
                 }
             }
 
+            if (completedSteps.includes(targetStep.id)) {   
+                this.debugSession.sendStoppedEvent('step');
+                return;
+            }
+
             // Check non-determinism on next top-level composite step
             if (this._stepManager.availableSteps.length > 1) {
                 this.debugSession.sendStoppedEvent('choice');
                 return;
             }
-        }
-
-        if (!this._isExecutionDone) {
-            this.debugSession.sendStoppedEvent('step');
-            return;
         }
 
         if (this.pauseOnEnd) {
@@ -160,6 +160,7 @@ export class CustomDebugRuntime {
         const enabledStep: LRP.Step = this._stepManager.enabledStep;
         if (enabledStep.isComposite) {
             await this.lrProxy.enterCompositeStep({ sourceFile: this._sourceFile, stepId: enabledStep.id });
+            await this.updateAvailableSteps();
         } else {
             // Check breakpoints
             const activatedBreakpoint: ActivatedBreakpoint | undefined = await this._breakpointManager.checkBreakpoints(enabledStep.id);
@@ -204,7 +205,7 @@ export class CustomDebugRuntime {
         const parentStepId: string = this._stepManager.parentStepId;
         let completedSteps: string[] = [];
 
-        while (!this._isExecutionDone && !completedSteps.includes(parentStepId)) {
+        while (!this._isExecutionDone) {
             let currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
             if (currentStep == undefined) throw new Error('No step currently enabled.');
 
@@ -226,16 +227,16 @@ export class CustomDebugRuntime {
                 }
             }
 
+            if (completedSteps.includes(parentStepId)) {   
+                this.debugSession.sendStoppedEvent('step');
+                return;
+            }
+
             // Check non-determinism on next top-level composite step
             if (this._stepManager.availableSteps.length > 1) {
                 this.debugSession.sendStoppedEvent('choice');
                 return;
             }
-        }
-
-        if (!this._isExecutionDone) {
-            this.debugSession.sendStoppedEvent('step');
-            return;
         }
 
         if (this.pauseOnEnd) {
@@ -396,8 +397,8 @@ export class CustomDebugRuntime {
         };
         const response = await this.lrProxy.executeAtomicStep(executeAtomicStepArguments);
         this.variableHandler.invalidateRuntime();
-        this.updateAvailableSteps();
-        this._isExecutionDone = this._stepManager.availableSteps.length > 0;
+        await this.updateAvailableSteps();
+        this._isExecutionDone = this._stepManager.availableSteps.length == 0;
 
         return response.completedSteps;
     }
