@@ -230,7 +230,7 @@ export class CustomDebugSession extends DebugSession {
         this.sendResponse(response);
 
         if (args.pauseOnStart) {
-            this.sendEvent(new StoppedEvent('stopped', CustomDebugSession.threadID));
+            this.sendStoppedEvent('start');
             return;
         }
 
