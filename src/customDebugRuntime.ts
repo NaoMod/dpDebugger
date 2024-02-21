@@ -25,6 +25,8 @@ export class CustomDebugRuntime {
 
     private _isInitDone: boolean;
 
+    private pauseRequired: boolean;
+
     constructor(private debugSession: CustomDebugSession, languageRuntimePort: number, private pauseOnEnd: boolean) {
         this.lrProxy = new LanguageRuntimeProxy(languageRuntimePort);
         this._isInitDone = false;
@@ -54,6 +56,7 @@ export class CustomDebugRuntime {
         const getAvailableStepsResponse: LRP.GetAvailableStepsResponse = await this.lrProxy.getAvailableSteps({ sourceFile: sourceFile });
         this._stepManager = new StepManager(getAvailableStepsResponse.availableSteps, getAvailableStepsResponse.parentStepId);
         this._isExecutionDone = this._stepManager.availableSteps.length == 0;
+        this.pauseRequired = false;
         this.terminatedEventSent = false;
 
         this._isInitDone = true;
@@ -78,6 +81,7 @@ export class CustomDebugRuntime {
             }
         }
 
+        this.pauseRequired = false;
         await this._run(this.noDebug);
     }
 
@@ -98,10 +102,17 @@ export class CustomDebugRuntime {
         }
         if (this._stepManager.enabledStep == undefined) throw new Error('No step enabled.');
 
+        this.pauseRequired = false;
+
         const targetStep: LRP.Step = this._stepManager.enabledStep;
         let completedSteps: string[] = [];
 
         while (!this._isExecutionDone) {
+            if (this.pauseRequired) {
+                this.debugSession.sendStoppedEvent('pause');
+                return;
+            }
+
             let currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
             if (currentStep == undefined) throw new Error('No step currently enabled.');
 
@@ -197,6 +208,8 @@ export class CustomDebugRuntime {
             }
         }
 
+        this.pauseRequired = false;
+
         if (this._stepManager.parentStepId == undefined) {
             await this._run(false);
             return;
@@ -206,6 +219,11 @@ export class CustomDebugRuntime {
         let completedSteps: string[] = [];
 
         while (!this._isExecutionDone) {
+            if (this.pauseRequired) {
+                this.debugSession.sendStoppedEvent('pause');
+                return;
+            }
+            
             let currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
             if (currentStep == undefined) throw new Error('No step currently enabled.');
 
@@ -303,7 +321,11 @@ export class CustomDebugRuntime {
         return response.location ? response.location : undefined;
     }
 
-    public enableStep(stepId: string) {
+    public pause(): void {
+        this.pauseRequired = true;
+    }
+
+    public enableStep(stepId: string): void {
         this._stepManager.enableStep(stepId);
     }
 
@@ -331,6 +353,11 @@ export class CustomDebugRuntime {
 
     private async _run(noDebug: boolean) {
         while (!this._isExecutionDone) {
+            if (this.pauseRequired) {
+                this.debugSession.sendStoppedEvent('pause');
+                return;
+            }
+
             const currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
             if (currentStep == undefined) throw new Error('No step currently enabled.');
 

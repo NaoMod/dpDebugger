@@ -261,11 +261,8 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected pauseRequest(response: DebugProtocol.PauseResponse, args: DebugProtocol.PauseArguments, request?: DebugProtocol.Request | undefined): void {
-        this.sendErrorResponse(response, {
-            id: 100, format: '{_exception}', variables: {
-                _exception: 'Runtime doesn\'t correspond to the source file.'
-            }
-        });
+        this.sendResponse(response);
+        this.runtime.pause();
     }
 
     /**
