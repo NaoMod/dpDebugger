@@ -47,7 +47,7 @@ export class CustomDebugRuntime {
 
         const parseResponse: LRP.ParseResponse = await this.lrProxy.parse({ sourceFile: sourceFile });
 
-        await this.lrProxy.initializeExecution({ sourceFile: sourceFile, bindings: {...additionalArgs} });
+        await this.lrProxy.initializeExecution({ sourceFile: sourceFile, bindings: { ...additionalArgs } });
 
         const getBreakpointTypes: LRP.GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
         this._breakpointManager = new CDAPBreakpointManager(sourceFile, this.lrProxy, parseResponse.astRoot, getBreakpointTypes.breakpointTypes);
@@ -113,6 +113,11 @@ export class CustomDebugRuntime {
                 return;
             }
 
+            if (completedSteps.includes(targetStep.id)) {
+                this.debugSession.sendStoppedEvent('step');
+                return;
+            }
+
             let currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
             if (currentStep == undefined) throw new Error('No step currently enabled.');
 
@@ -132,11 +137,6 @@ export class CustomDebugRuntime {
                     this.debugSession.sendStoppedEvent('choice');
                     return;
                 }
-            }
-
-            if (completedSteps.includes(targetStep.id)) {   
-                this.debugSession.sendStoppedEvent('step');
-                return;
             }
 
             // Check non-determinism on next top-level composite step
@@ -223,7 +223,12 @@ export class CustomDebugRuntime {
                 this.debugSession.sendStoppedEvent('pause');
                 return;
             }
-            
+
+            if (completedSteps.includes(parentStepId)) {
+                this.debugSession.sendStoppedEvent('step');
+                return;
+            }
+
             let currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
             if (currentStep == undefined) throw new Error('No step currently enabled.');
 
@@ -243,11 +248,6 @@ export class CustomDebugRuntime {
                     this.debugSession.sendStoppedEvent('choice');
                     return;
                 }
-            }
-
-            if (completedSteps.includes(parentStepId)) {   
-                this.debugSession.sendStoppedEvent('step');
-                return;
             }
 
             // Check non-determinism on next top-level composite step
