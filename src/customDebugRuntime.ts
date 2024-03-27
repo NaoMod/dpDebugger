@@ -121,16 +121,17 @@ export class CustomDebugRuntime {
             let currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
             if (currentStep == undefined) throw new Error('No step currently enabled.');
 
-            // Check breakpoints
-            const activatedBreakpoint: ActivatedBreakpoint | undefined = await this._breakpointManager.checkBreakpoints(currentStep.id);
-            if (activatedBreakpoint !== undefined) {
-                this.debugSession.sendStoppedEvent('breakpoint', activatedBreakpoint.message);
-                return;
-            }
-
             // Find and execute next atomic step
             try {
                 const atomicStep: LRP.Step = await this.findNextAtomicStep(currentStep);
+
+                // Check breakpoints
+                const activatedBreakpoint: ActivatedBreakpoint | undefined = await this._breakpointManager.checkBreakpoints(atomicStep.id);
+                if (activatedBreakpoint !== undefined) {
+                    this.debugSession.sendStoppedEvent('breakpoint', activatedBreakpoint.message);
+                    return;
+                }
+
                 completedSteps = await this.executeAtomicStep(atomicStep);
             } catch (error: unknown) {
                 if (error instanceof NonDeterminismError) {
@@ -232,16 +233,19 @@ export class CustomDebugRuntime {
             let currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
             if (currentStep == undefined) throw new Error('No step currently enabled.');
 
-            // Check breakpoints
-            const activatedBreakpoint: ActivatedBreakpoint | undefined = await this._breakpointManager.checkBreakpoints(currentStep.id);
-            if (activatedBreakpoint !== undefined) {
-                this.debugSession.sendStoppedEvent('breakpoint', activatedBreakpoint.message);
-                return;
-            }
+
 
             // Find and execute next atomic step
             try {
                 const atomicStep: LRP.Step = await this.findNextAtomicStep(currentStep);
+
+                // Check breakpoints
+                const activatedBreakpoint: ActivatedBreakpoint | undefined = await this._breakpointManager.checkBreakpoints(atomicStep.id);
+                if (activatedBreakpoint !== undefined) {
+                    this.debugSession.sendStoppedEvent('breakpoint', activatedBreakpoint.message);
+                    return;
+                }
+
                 completedSteps = await this.executeAtomicStep(atomicStep);
             } catch (error: unknown) {
                 if (error instanceof NonDeterminismError) {
@@ -361,18 +365,21 @@ export class CustomDebugRuntime {
             const currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
             if (currentStep == undefined) throw new Error('No step currently enabled.');
 
-            if (!noDebug) {
-                // Check breakpoints
-                const activatedBreakpoint: ActivatedBreakpoint | undefined = await this._breakpointManager.checkBreakpoints(currentStep.id);
-                if (activatedBreakpoint !== undefined) {
-                    this.debugSession.sendStoppedEvent('breakpoint', activatedBreakpoint.message);
-                    return;
-                }
-            }
+            
 
             // Find and execute next atomic step
             try {
                 const atomicStep: LRP.Step = await this.findNextAtomicStep(currentStep);
+
+                if (!noDebug) {
+                    // Check breakpoints
+                    const activatedBreakpoint: ActivatedBreakpoint | undefined = await this._breakpointManager.checkBreakpoints(atomicStep.id);
+                    if (activatedBreakpoint !== undefined) {
+                        this.debugSession.sendStoppedEvent('breakpoint', activatedBreakpoint.message);
+                        return;
+                    }
+                }
+
                 await this.executeAtomicStep(atomicStep);
             } catch (error: unknown) {
                 if (error instanceof NonDeterminismError) {

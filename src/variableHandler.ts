@@ -15,7 +15,9 @@ export class VariableHandler {
     private runtimeStateRoot?: LRP.ModelElement;
 
     private idToAstElement: Map<string, LRP.ModelElement>;
+    private astMultivaluedRefs: Set<any[]>;
     private idToRuntimeStateElement: Map<string, LRP.ModelElement>;
+    private runtimeStateMultivaluedRefs: Set<any[]>;
 
     private variableReferenceRegistry: VariableReferenceRegistry;
 
@@ -25,7 +27,9 @@ export class VariableHandler {
         this.astRoot = astRoot;
         this.runtimeStateRoot = undefined;
 
-        this.idToAstElement = this.buildRegistry(astRoot);
+        const processedAst: ProcessedModelRoot = this.process(astRoot);
+        this.idToAstElement = processedAst.idToElement;
+        this.astMultivaluedRefs = processedAst.multivaluedRefs;
 
         this.variableReferenceRegistry = new VariableReferenceRegistry();
         this.variableReferenceRegistry.set(astRoot, AST_ROOT_VARIABLES_REFERENCE);
@@ -57,6 +61,8 @@ export class VariableHandler {
 
     public invalidateRuntime(): void {
         this.runtimeStateRoot = undefined;
+        this.idToRuntimeStateElement.clear();
+        this.runtimeStateMultivaluedRefs.clear();
         this.variableReferenceRegistry.clear();
         this.variableReferenceRegistry.set(this.astRoot, AST_ROOT_VARIABLES_REFERENCE);
         this.currentReference = 2;
@@ -70,7 +76,9 @@ export class VariableHandler {
     public updateRuntime(runtimeStateRoot: LRP.ModelElement): void {
         this.runtimeStateRoot = runtimeStateRoot;
 
-        this.idToRuntimeStateElement = this.buildRegistry(runtimeStateRoot);
+        const processedRuntimeState: ProcessedModelRoot = this.process(runtimeStateRoot);
+        this.idToRuntimeStateElement = processedRuntimeState.idToElement;
+        this.runtimeStateMultivaluedRefs = processedRuntimeState.multivaluedRefs;
 
         this.variableReferenceRegistry.clear();
         this.variableReferenceRegistry.set(this.astRoot, AST_ROOT_VARIABLES_REFERENCE);
@@ -112,47 +120,73 @@ export class VariableHandler {
     private getVariablesForArray(array: any[]): Variable[] {
         const variables: Variable[] = [];
 
-        for (let i = 0; i < array.length; i++) {
-            variables.push(this.createVariable(i.toString(), array[i]));
+        if (this.astMultivaluedRefs.has(array) || this.runtimeStateMultivaluedRefs.has(array)) {
+            for (let i = 0; i < array.length; i++) {
+                variables.push(this.createVariableFromRef(i.toString(), array[i]));
+            }
+        } else {
+            for (let i = 0; i < array.length; i++) {
+                variables.push(this.createVariable(i.toString(), array[i]));
+            }
         }
 
         return variables;
     }
 
+    private process(modelRoot: LRP.ModelElement): ProcessedModelRoot {
+        return {
+            idToElement: this.buildRegistry(modelRoot),
+            multivaluedRefs: this.findMultivaluedRefs(modelRoot)
+        };
+    }
+
     /**
      * Adds model elements to the registry of all model elements.
      * 
-     * @param modelRoot The root from which to add model elements. All model elements recursively contained by the 
+     * @param element The element from which to add model elements. All model elements recursively contained by the 
      * root will be added to the registry.
      * @returns The registry built from the model root.
      */
-    private buildRegistry(modelRoot: LRP.ModelElement): Map<string, LRP.ModelElement> {
-        const res: Map<string, LRP.ModelElement> = new Map();
-        this.addElements(modelRoot, res);
+    private buildRegistry(element: LRP.ModelElement): Map<string, LRP.ModelElement> {
+        let res: Map<string, LRP.ModelElement> = new Map();
+        if (element === null) return res;
+
+        res.set(element.id, element);
+
+        for (const child of Object.values(element.children)) {
+            if (Array.isArray(child)) {
+                for (const grandchild of child) {
+                    res = new Map([...res, ...this.buildRegistry(grandchild)]);
+                }
+            } else {
+                res = new Map([...res, ...this.buildRegistry(child)]);
+            }
+        }
 
         return res;
     }
 
-    /**
-     * Add a single model element to a registry of all model elements.
-     * 
-     * @param currentElement The model element to add to the registry.
-     * @param registry The registry of model elements.
-     */
-    private addElements(currentElement: LRP.ModelElement, registry: Map<string, LRP.ModelElement>): void {
-        if (currentElement === null) return;
+    private findMultivaluedRefs(element: LRP.ModelElement): Set<any[]> {
+        let res: Set<any[]> = new Set();
+        if (element == null) return res;
 
-        registry.set(currentElement.id, currentElement);
-
-        for (const child of Object.values(currentElement.children)) {
-            if (Array.isArray(child)) {
-                for (const grandchild of child) {
-                    this.addElements(grandchild, registry);
-                }
-            } else {
-                this.addElements(child, registry);
+        for (const ref of Object.values(element.refs)) {
+            if (Array.isArray(ref)) {
+                res.add(ref);
             }
         }
+
+        for (const child of Object.values(element.children)) {
+            if (Array.isArray(child)) {
+                for (const grandchild of child) {
+                    res = new Set([...res, ...this.findMultivaluedRefs(grandchild)]);
+                }
+            } else {
+                res = new Set([...res, ...this.findMultivaluedRefs(child)]);
+            }
+        }
+
+        return res;
     }
 
     /**
@@ -186,7 +220,8 @@ export class VariableHandler {
         if (Array.isArray(ref)) {
             if (ref.length == 0) return new Variable(name, 'Array[' + ref.length + ']');
 
-            return new Variable(name, 'Array[' + ref.length + ']', this.getReference(ref), ref.length);
+            const reference: number = this.getReference(ref);
+            return new Variable(name, 'Array[' + ref.length + ']', reference, ref.length);
         }
 
         let referencedObject: LRP.ModelElement | undefined = this.idToAstElement.get(ref);
@@ -221,19 +256,11 @@ export class VariableHandler {
      * @returns True if the object is a model element, false otherwise.
      */
     private isModelElement(object: any): object is LRP.ModelElement {
-        // best way to go through keys of ModelElement interface since the keyof keyword is not available
-        // will break when ModelElement is changed
-        class ModelElementImpl implements LRP.ModelElement {
-            id: string;
-            types: string[];
-            children: { [key: string]: LRP.ModelElement | LRP.ModelElement[]; };
-            refs: { [key: string]: string | string[]; };
-            attributes: { [key: string]: any; };
-        }
-
-        for (const key of Object.keys(new ModelElementImpl())) {
-            if (!Object.keys(object).includes(key)) return false;
-        }
+        if (object['id'] === undefined) return false;
+        if (object['types'] === undefined) return false;
+        if (object['attributes'] === undefined) return false;
+        if (object['refs'] === undefined) return false;
+        if (object['children'] === undefined) return false;
 
         return true;
     }
@@ -297,3 +324,8 @@ class VariableReferenceRegistry {
         this.referenceToObject.clear();
     }
 }
+
+type ProcessedModelRoot = {
+    idToElement: Map<string, LRP.ModelElement>;
+    multivaluedRefs: Set<any[]>;
+};

@@ -1,25 +1,35 @@
 {
   "compilerOptions": {
-    "outDir": "out",
-    "baseUrl": ".",
-    "inlineSourceMap": true,
-    "inlineSources": true,
-    "module": "CommonJS",
-    "target": "ESNext",
-    "allowJs": true,
-    "noImplicitAny": true,
-    "moduleResolution": "node",
-    "importHelpers": true,
-    "isolatedModules": true,
-	"strictNullChecks": true,
+    "target": "ES6",
+    "module": "commonjs",
     "lib": [
+      "ESNext",  
       "DOM",
       "ES5",
       "ES6",
       "ES7"
-    ]
+    ],
+    "sourceMap": true,
+    "outDir": "out",
+    "noUnusedLocals": true,
+    "noImplicitReturns": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+	  "strictNullChecks": true,
+    "baseUrl": ".",
+    "inlineSources": true,
+    "allowJs": true,
+    "noImplicitAny": true,
+    "importHelpers": true,
   },
   "include": [
-    "**/*.ts"
+     "src/**/*.ts"
+  ],
+  "exclude": [
+     "out",
+     "node_modules"
   ]
 }
