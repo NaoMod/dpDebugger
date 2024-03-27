@@ -22,6 +22,8 @@ export interface CustomLaunchRequestArguments extends DebugProtocol.LaunchReques
     /** Enabled breakpoint types at the start of execution. */
     enabledBreakpointTypeIds?: string[],
 
+    skipRedundantPauses?: boolean;
+
     /** Additional arguments that may be required for specific languages. */
     additionalArgs?: any;
 }
@@ -221,7 +223,7 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected async launchRequest(response: DebugProtocol.LaunchResponse, args: CustomLaunchRequestArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
-        this.runtime = new CustomDebugRuntime(this, args.languageRuntimePort, args.pauseOnEnd ? args.pauseOnEnd : false);
+        this.runtime = new CustomDebugRuntime(this, args.languageRuntimePort, args.pauseOnEnd ? args.pauseOnEnd : false, args.skipRedundantPauses ? args.skipRedundantPauses : false);
         await this.runtime.initExecution(args.sourceFile, args.noDebug ? args.noDebug : false, args.additionalArgs);
         this.runtime.breakpointManager.setFormat(this.initializeArgs.linesStartAt1 == undefined ? true : this.initializeArgs.linesStartAt1, this.initializeArgs.columnsStartAt1 == undefined ? true : this.initializeArgs.columnsStartAt1);
 

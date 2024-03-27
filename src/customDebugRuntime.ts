@@ -26,10 +26,12 @@ export class CustomDebugRuntime {
     private _isInitDone: boolean;
 
     private pauseRequired: boolean;
+    private pausedOnCurrentStep: boolean;
 
-    constructor(private debugSession: CustomDebugSession, languageRuntimePort: number, private pauseOnEnd: boolean,) {
+    constructor(private debugSession: CustomDebugSession, languageRuntimePort: number, private pauseOnEnd: boolean, private skipRedundantPauses: boolean) {
         this.lrProxy = new LanguageRuntimeProxy(languageRuntimePort);
         this._isInitDone = false;
+        this.pausedOnCurrentStep = true;
     }
 
     /**
@@ -57,6 +59,7 @@ export class CustomDebugRuntime {
         this._stepManager = new StepManager(getAvailableStepsResponse.availableSteps, getAvailableStepsResponse.parentStepId);
         this._isExecutionDone = this._stepManager.availableSteps.length == 0;
         this.pauseRequired = false;
+        this.pausedOnCurrentStep = true;
         this.terminatedEventSent = false;
 
         this._isInitDone = true;
@@ -400,7 +403,7 @@ export class CustomDebugRuntime {
     }
 
     private async enterCompositeStep(step: LRP.Step, noDebug: boolean): Promise<void> {
-        if (!noDebug) {
+        if (!noDebug && (!this.pausedOnCurrentStep || !this.skipRedundantPauses)) {
             // Check breakpoints for composite step
             const activatedBreakpoint: ActivatedBreakpoint | undefined = await this._breakpointManager.checkBreakpoints(step.id);
             if (activatedBreakpoint !== undefined) throw new ActivatedBreakpointError(activatedBreakpoint);
@@ -413,10 +416,11 @@ export class CustomDebugRuntime {
 
         await this.lrProxy.enterCompositeStep(enterCompositeStepArguments);
         await this.updateAvailableSteps();
+        this.pausedOnCurrentStep = false;
     }
 
     private async executeAtomicStep(step: LRP.Step, noDebug: boolean): Promise<string[]> {
-        if (!noDebug) {
+        if (!noDebug && (!this.pausedOnCurrentStep || !this.skipRedundantPauses)) {
             // Check breakpoints for atomic step
             const activatedBreakpoint: ActivatedBreakpoint | undefined = await this._breakpointManager.checkBreakpoints(step.id);
             if (activatedBreakpoint !== undefined) throw new ActivatedBreakpointError(activatedBreakpoint);
@@ -430,6 +434,7 @@ export class CustomDebugRuntime {
         const response = await this.lrProxy.executeAtomicStep(executeAtomicStepArguments);
         this.variableHandler.invalidateRuntime();
         await this.updateAvailableSteps();
+        this.pausedOnCurrentStep = false;
         this._isExecutionDone = this._stepManager.availableSteps.length == 0;
 
         return response.completedSteps;
@@ -446,6 +451,7 @@ export class CustomDebugRuntime {
     }
 
     private stop(reason: string, message?: string | undefined): void {
+        this.pausedOnCurrentStep = true;
         this.debugSession.sendStoppedEvent(reason, message);
     }
 }
