@@ -90,6 +90,11 @@ export class CustomDebugSession extends DebugSession {
 
         response.body = {};
 
+        // This debug adapter does not support delayed loading of stack frames.
+        /* This should be true as it is currently supported by this debugger,
+        but for some reason VSCode is messing up with it so it is set as false for the moment. */
+        response.body.supportsDelayedStackTraceLoading = false;
+
         // This default debug adapter does not support conditional breakpoints.
         response.body.supportsConditionalBreakpoints = false;
         response.body.supportsSingleThreadExecutionRequests = false;
@@ -125,8 +130,6 @@ export class CustomDebugSession extends DebugSession {
         response.body.supportsExceptionInfoRequest = false;
         // This debug adapter does not support the 'TerminateDebuggee' attribute on the 'disconnect' request.
         response.body.supportTerminateDebuggee = false;
-        // This debug adapter does not support delayed loading of stack frames.
-        response.body.supportsDelayedStackTraceLoading = false;
         // This debug adapter does not support the 'loadedSources' request.
         response.body.supportsLoadedSourcesRequest = false;
         // This debug adapter does not support the 'logMessage' attribute of the SourceBreakpoint.
@@ -379,20 +382,51 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected async stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
-        let location: LRP.Location | undefined = await this.runtime.getCurrentLocation();
+        const stack: LRP.Step[] = this.runtime.stack;
+        const stackLocations: Map<LRP.Step, LRP.Location | null> = this.runtime.stackLocations;
+        const stackFrames: StackFrame[] = [];
+        const startFrame: number = args.startFrame !== undefined ? args.startFrame : 0;
+        const levels: number = args.levels !== undefined && args.levels <= stack.length ? args.levels : stack.length + 1;
 
-        const stackFrame: StackFrame = {
-            id: 0,
-            name: 'Main',
-            source: new Source(this.runtime.sourceFile),
-            line: location ? location.line : 0,
-            column: location ? location.column : 0,
-            endLine: location ? location.endLine : undefined,
-            endColumn: location ? location.endColumn : undefined
-        };
+        for (let i = startFrame; i < (startFrame + levels); i++) {
+            if (i > stack.length) break;
+
+            if (i === stack.length) {
+                const location: LRP.Location | null | undefined = stack.length === 0 ? await this.runtime.getEnabledStepLocation() : stackLocations.get(stack[0]);
+                if (location === undefined) throw new Error('Undefined location for stack step.');
+
+                stackFrames.push({
+                    id: stack.length,
+                    name: 'Main',
+                    source: new Source(this.runtime.sourceFile),
+                    line: location !== null ? location.line : 0,
+                    column: location !== null ? location.column : 0,
+                    endLine: location !== null ? location.endLine : undefined,
+                    endColumn: location !== null ? location.endColumn : undefined,
+                    canRestart: false
+                });
+
+                continue;
+            }
+
+            const location: LRP.Location | null | undefined = i === 0 ? await this.runtime.getEnabledStepLocation() : stackLocations.get(stack[stack.length - i]);
+            if (location === undefined) throw new Error('Undefined location for stack step.');
+
+            stackFrames.push({
+                id: startFrame + levels - i - 1,
+                name: stack[stack.length - 1 - i].name,
+                source: new Source(this.runtime.sourceFile),
+                line: location !== null ? location.line : 0,
+                column: location !== null ? location.column : 0,
+                endLine: location !== null ? location.endLine : undefined,
+                endColumn: location !== null ? location.endColumn : undefined,
+                canRestart: false
+            });
+        }
 
         response.body = {
-            stackFrames: [stackFrame]
+            stackFrames: stackFrames,
+            totalFrames: stack.length + 1
         }
 
         this.sendResponse(response);

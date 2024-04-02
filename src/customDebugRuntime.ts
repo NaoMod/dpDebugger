@@ -56,7 +56,9 @@ export class CustomDebugRuntime {
         this.variableHandler = new VariableHandler(parseResponse.astRoot);
 
         const getAvailableStepsResponse: LRP.GetAvailableStepsResponse = await this.lrProxy.getAvailableSteps({ sourceFile: sourceFile });
-        this._stepManager = new StepManager(getAvailableStepsResponse.availableSteps, getAvailableStepsResponse.parentStepId);
+        if (getAvailableStepsResponse.parentStepId !== undefined) throw new Error('Unexpected parent step at start of the execution.');
+
+        this._stepManager = new StepManager(getAvailableStepsResponse.availableSteps);
         this._isExecutionDone = this._stepManager.availableSteps.length == 0;
         this.pauseRequired = false;
         this.pausedOnCurrentStep = true;
@@ -209,12 +211,12 @@ export class CustomDebugRuntime {
 
         this.pauseRequired = false;
 
-        if (this._stepManager.parentStepId == undefined) {
+        if (this._stepManager.stack.length === 0) {
             await this._run(false);
             return;
         }
 
-        const parentStepId: string = this._stepManager.parentStepId;
+        const parentStepId: string = this._stepManager.stack[this._stepManager.stack.length].id;
         let completedSteps: string[] = [];
 
         while (!this._isExecutionDone) {
@@ -298,23 +300,22 @@ export class CustomDebugRuntime {
         });
     }
 
-    public async getCurrentLocation(): Promise<LRP.Location | undefined> {
-        if (this._isExecutionDone) return undefined;
+    public async getEnabledStepLocation(): Promise<LRP.Location | null> {
+        if (this._isExecutionDone) return null;
         if (this._stepManager.enabledStep == undefined) throw new Error('No step currently enabled.');
 
-        const location: LRP.Location | null | undefined = this._stepManager.locations.get(this._stepManager.enabledStep);
+        let location: LRP.Location | null | undefined = this._stepManager.availableStepsLocations.get(this._stepManager.enabledStep);
 
-        if (location === null) return undefined;
-        if (location) return location;
+        if (location !== undefined) return location;
 
         const response: LRP.GetStepLocationResponse = await this.lrProxy.getStepLocation({
             sourceFile: this._sourceFile,
             stepId: this._stepManager.enabledStep.id
         });
 
-        this._stepManager.locations.set(this._stepManager.enabledStep, response.location ? response.location : null);
+        this._stepManager.availableStepsLocations.set(this._stepManager.enabledStep, response.location ? response.location : null);
 
-        return response.location ? response.location : undefined;
+        return response.location !== undefined ? response.location : null;
     }
 
     public pause(): void {
@@ -341,6 +342,13 @@ export class CustomDebugRuntime {
         return this._isInitDone;
     }
 
+    public get stack(): LRP.Step[] {
+        return this._stepManager.stack;
+    }
+
+    public get stackLocations(): Map<LRP.Step, LRP.Location | null> {
+        return this._stepManager.stackLocations;
+    }
 
 
 
@@ -415,7 +423,7 @@ export class CustomDebugRuntime {
         }
 
         await this.lrProxy.enterCompositeStep(enterCompositeStepArguments);
-        await this.updateAvailableSteps();
+        await this.updateAvailableSteps([]);
         this.pausedOnCurrentStep = false;
     }
 
@@ -433,21 +441,23 @@ export class CustomDebugRuntime {
 
         const response = await this.lrProxy.executeAtomicStep(executeAtomicStepArguments);
         this.variableHandler.invalidateRuntime();
-        await this.updateAvailableSteps();
+        await this.updateAvailableSteps(response.completedSteps);
         this.pausedOnCurrentStep = false;
         this._isExecutionDone = this._stepManager.availableSteps.length == 0;
 
         return response.completedSteps;
     }
 
-    private async updateAvailableSteps(): Promise<void> {
+    private async updateAvailableSteps(completedSteps: string[]): Promise<void> {
         const stepsArgs: LRP.GetAvailableStepsArguments = {
             sourceFile: this._sourceFile
         }
 
         const response = await this.lrProxy.getAvailableSteps(stepsArgs);
-        this._stepManager.update(response.availableSteps, response.parentStepId);
+        this._stepManager.update(response.availableSteps, completedSteps);
         this._isExecutionDone = response.availableSteps.length == 0;
+
+        if (!this._isExecutionDone) this.getEnabledStepLocation();
     }
 
     private stop(reason: string, message?: string | undefined): void {
