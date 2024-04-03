@@ -215,7 +215,7 @@ export class CustomDebugRuntime {
             return;
         }
 
-        const parentStepId: string = this._stepManager.stack[this._stepManager.stack.length].id;
+        const parentStepId: string = this._stepManager.stack[this._stepManager.stack.length - 1].id;
         let completedSteps: string[] = [];
 
         while (!this._isExecutionDone) {
