@@ -56,7 +56,6 @@ export class CustomDebugRuntime {
         this.variableHandler = new VariableHandler(parseResponse.astRoot);
 
         const getAvailableStepsResponse: LRP.GetAvailableStepsResponse = await this.lrProxy.getAvailableSteps({ sourceFile: sourceFile });
-        if (getAvailableStepsResponse.parentStepId !== undefined) throw new Error('Unexpected parent step at start of the execution.');
 
         this._stepManager = new StepManager(getAvailableStepsResponse.availableSteps);
         this._isExecutionDone = this._stepManager.availableSteps.length == 0;

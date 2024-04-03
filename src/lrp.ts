@@ -175,7 +175,6 @@ export enum PrimitiveType {
 export type GetAvailableStepsArguments = Arguments;
 
 export type GetAvailableStepsResponse = {
-    parentStepId?: string;
     availableSteps: Step[];
 }
 
