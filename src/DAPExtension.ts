@@ -14,10 +14,26 @@ type Leaf = {
     name: string;
 
     /** Human-readable description of the item. */
-    description: string;
+    description?: string;
 
     /** True if this item is currently enabled, false otherwise. */
     isEnabled: boolean;
+}
+
+/**
+ * Arguments for the 'getBreakpointTypes' cDAP request.
+*/
+export type EnableBreakpointTypesArguments = Arguments & {
+    /** Breakpoint types to enable. */
+    breakpointTypeIds: string[];
+}
+
+/**
+ * Response to the 'getBreakpointTypes' cDAP request.
+ */
+export type GetBreakpointTypesResponse = {
+    /** Breakpoint types defined by the language runtime. */
+    breakpointTypes: BreakpointType[];
 }
 
 /**
@@ -28,28 +44,23 @@ export type BreakpointType = Leaf & {
     targetElementTypeId?: string;
 }
 
-export type GetBreakpointTypesResponse = {
-    /** Breakpoint types defined by the language runtime. */
-    breakpointTypes: BreakpointType[];
-}
-
 /**
- * Arguments to request the enablement of certain breakpoint types.
- */
-export type EnableBreakpointTypesArguments = Arguments & {
-    /** Breakpoint types to enable. */
-    breakpointTypeIds: string[];
-}
-
-export type Step = Leaf;
-
-/**
- * Arguments to request the enablement of a certain step.
- */
+ * Arguments for the 'enableStep' cDAP request.
+*/
 export type EnableStepArguments = Arguments & {
+    /** Id of the step to enable. */
     stepId: string;
 }
 
+/**
+ * Response to the 'enableStep' cDAP request.
+*/
 export type GetAvailableStepsResponse = {
+    /** Currently available steps. */
     availableSteps: Step[];
 }
+
+/**
+ * Execution step listed by the language runtime.
+*/
+export type Step = Leaf;
