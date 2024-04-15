@@ -123,7 +123,7 @@ export type BreakpointType = {
     name: string;
 
     /** Human-readable description of the breakpoint type. */
-    description: string;
+    description?: string;
 
     /** Parameters needed to evaluate a breakpoint of this type. */
     parameters: BreakpointParameter[];
