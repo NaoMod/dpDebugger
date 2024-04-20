@@ -10,17 +10,31 @@ import * as LRP from "./lrp";
  */
 export class CDAPBreakpointManager {
 
+    /** Registry of all AST elements. */
     private astElementRegistry: ASTElementRegistry;
 
+    /** Available breakpoint types defined by the language runtime. */
     readonly _availableBreakpointTypes: LRP.BreakpointType[];
+
+    /** Currently enabled breakpoints targeting an AST element. */
     private enabledElementBreakpointTypes: Map<string, LRP.BreakpointType[]>;
+
+    /** AST elements with at least one breakpoint targeting them. */
     private elementsWithBreakpoints: Set<LRP.ModelElement>;
+
+    /** Currently enabled breakpoints not targeting any AST element. */
     private enabledStandaloneBreakpointTypes: Set<LRP.BreakpointType>;
 
+    /** Previously activated breakpoints targeting an AST element. */
     private activatedElementBreakpoints: Set<LRP.ModelElement>;
+
+    /** Previously activated breakpoints not targeting any AST element. */
     private activatedStandaloneBreakpoints: Set<LRP.BreakpointType>;
 
+    /** Line offset of the IDE. */
     private lineOffset: number;
+
+    /** Column offset of the IDE. */
     private columnOffset: number;
 
     constructor(private sourceFile: string, private lrProxy: LanguageRuntimeProxy, astRoot: LRP.ModelElement, availableBreakpointTypes: LRP.BreakpointType[]) {
@@ -54,8 +68,9 @@ export class CDAPBreakpointManager {
 
     /**
      * Checks if any breakpoint is activated based on the current state of the program and information on the next step
-     * executed by the language.
+     * performed by the language (either composite or atomic).
      * 
+     * @param stepId ID of the step on which to check breakpoints.  
      * @returns The breakpoint that activated first, or undefined if no breakpoint was activated.
      */
     public async checkBreakpoints(stepId: string): Promise<ActivatedBreakpoint | undefined> {
@@ -117,9 +132,9 @@ export class CDAPBreakpointManager {
 
     /**
      * Sets multiple breakpoints.
-     * Previsouly set breakpoints are removed.
+     * Previously set breakpoints are removed.
      * 
-     * @param breakpoints The breakpoints to be set.
+     * @param breakpoints Source breakpoints to be set.
      * @returns Information about the result of setting each breakpoint.
      */
     public setBreakpoints(breakpoints: DebugProtocol.SourceBreakpoint[]): DebugProtocol.Breakpoint[] {
@@ -177,9 +192,9 @@ export class CDAPBreakpointManager {
 
     /**
      * Enables multiple breakpoint types.
-     * Previsouly enabled breakpoint types are disabled.
+     * Previously enabled breakpoint types are disabled.
      * 
-     * @param breakpointTypeIds 
+     * @param breakpointTypeIds IDS of the breakpoint types to enable.
      */
     public enableBreakpointTypes(breakpointTypeIds: string[]): void {
         this.enabledElementBreakpointTypes.clear();
@@ -204,9 +219,7 @@ export class CDAPBreakpointManager {
         }
     }
 
-    /**
-     * Fetches the currently available breakpoint types.
-     */
+    /** cDAP-compatible available breakpoint types. */
     public get availableBreakpointTypes(): DAPExtension.BreakpointType[] {
         return this._availableBreakpointTypes.map(breakpointType => {
             const res: DAPExtension.BreakpointType = {
@@ -227,7 +240,7 @@ export class CDAPBreakpointManager {
     /**
      * Checks whether a breakpoint type is currently enabled.
      * 
-     * @param breakpointType The breakpoint type to check for.
+     * @param breakpointType Breakpoint type to check for.
      * @returns True if the breakpoint type is currently enabled, false otherwise.
      */
     private isBreakpointTypeEnabled(breakpointType: LRP.BreakpointType): boolean {
@@ -250,12 +263,17 @@ export interface ActivatedBreakpoint {
 }
 
 /**
- * Allows the quick retrieval of model elements.
+ * Allows quick retrieval of model elements.
  */
-export class ASTElementRegistry {
+class ASTElementRegistry {
+    /** Map of IDs to AST elements. */
     private elements: Map<string, LRP.ModelElement>;
-    private parents: Map<string, string>; // child -> parent
-    private locations: Map<number, LRP.ModelElement[]>; // line -> element[]
+
+    /** Map of AST element IDS to the ID of their parent element. */
+    private parents: Map<string, string>;
+
+    /** Map of lines to the AST element they contain. */
+    private locations: Map<number, LRP.ModelElement[]>;
 
     constructor(astRoot: LRP.ModelElement) {
         this.elements = new Map();
@@ -267,7 +285,7 @@ export class ASTElementRegistry {
     /**
      * Retrieves the ID of the model element containing a specific model element.
      * 
-     * @param childId The ID of the child model element.
+     * @param childId ID of the child model element.
      * @returns The ID of the parent model element.
      */
     public getParent(childId: string): string | undefined {
@@ -277,7 +295,7 @@ export class ASTElementRegistry {
     /**
      * Retrieves a model element from its ID.
      * 
-     * @param elemenId The ID of the model element to retrieve.
+     * @param elemenId ID of the model element to retrieve.
      * @returns The model element.
      */
     public getElement(elemenId: string): LRP.ModelElement | undefined {
@@ -287,8 +305,8 @@ export class ASTElementRegistry {
     /**
      * Retrieves a model element at a specific position in a textual source file.
      * 
-     * @param line The line of the element in the source file.
-     * @param column The column of the element in the source file.
+     * @param line Line of the element in the source file.
+     * @param column Column of the element in the source file.
      * @returns The model element at the given position, or undefined if there is none. 
      */
     public getElementFromPosition(line: number, column: number): LRP.ModelElement | undefined {
@@ -306,9 +324,9 @@ export class ASTElementRegistry {
     /**
      * Register a new model element from the AST.
      * 
-     * @param element The element to register.
+     * @param element Element to register.
      */
-    private registerElement(element: LRP.ModelElement) {
+    private registerElement(element: LRP.ModelElement): void {
         this.elements.set(element.id, element);
 
         if (element.location) {
@@ -332,9 +350,10 @@ export class ASTElementRegistry {
 
     /**
      * Checks whether a position is contained in the location of a model element.
-     * @param element The model element conatining the location against which the position will be checked.
-     * @param line The line of the position.
-     * @param column THe column of the position.
+     * 
+     * @param element Model element containing the location against which the position will be checked.
+     * @param line Line of the position.
+     * @param column Column of the position.
      * @returns True if the position is contained, false otherwise.
      */
     private isPositionContained(element: LRP.ModelElement, line: number, column: number): boolean {

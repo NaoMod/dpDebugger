@@ -201,7 +201,7 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected async threadsRequest(response: DebugProtocol.ThreadsResponse, request?: DebugProtocol.Request | undefined): Promise<void> {
-        // TODO: fix conflicting calls during initialization
+        // Workaround to fix conflicting calls during initialization
         while (!this.runtime.isInitDone) await new Promise<void>(resolve => setTimeout(() => {
             resolve()
         }, 200));
@@ -226,20 +226,16 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected async launchRequest(response: DebugProtocol.LaunchResponse, args: CustomLaunchRequestArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
+        this.sendResponse(response);
+        if (args.noDebug) throw new Error('Debugging must be enabled.');
+
         this.runtime = new CustomDebugRuntime(this, args.languageRuntimePort, args.pauseOnEnd ? args.pauseOnEnd : false, args.skipRedundantPauses ? args.skipRedundantPauses : false);
-        await this.runtime.initExecution(args.sourceFile, args.noDebug ? args.noDebug : false, args.additionalArgs);
+        await this.runtime.initializeExecution(args.sourceFile, args.pauseOnStart ? args.pauseOnStart : false, args.additionalArgs);
         this.runtime.breakpointManager.setFormat(this.initializeArgs.linesStartAt1 == undefined ? true : this.initializeArgs.linesStartAt1, this.initializeArgs.columnsStartAt1 == undefined ? true : this.initializeArgs.columnsStartAt1);
 
         if (args.enabledBreakpointTypeIds) this.runtime.breakpointManager.enableBreakpointTypes(args.enabledBreakpointTypeIds);
 
-        this.sendResponse(response);
-
-        if (args.pauseOnStart) {
-            this.sendStoppedEvent('start');
-            return;
-        }
-
-        this.runtime.run();
+        if (!args.pauseOnStart && !this.runtime.isExecutionDone) this.runtime.run();
     }
 
     /**
@@ -306,7 +302,7 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected async setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
-        // TODO: fix conflicting calls during initialization
+        // Workaround to fix conflicting calls during initialization
         while (!this.runtime.isInitDone) await new Promise<void>(resolve => setTimeout(() => {
             resolve()
         }, 200));
@@ -391,6 +387,7 @@ export class CustomDebugSession extends DebugSession {
         for (let i = startFrame; i < (startFrame + levels); i++) {
             if (i > stack.length) break;
 
+            // Produce root frame
             if (i === stack.length) {
                 const location: LRP.Location | null | undefined = stack.length === 0 ? await this.runtime.getEnabledStepLocation() : stackLocations.get(stack[0]);
                 if (location === undefined) throw new Error('Undefined location for stack step.');
@@ -409,6 +406,7 @@ export class CustomDebugSession extends DebugSession {
                 continue;
             }
 
+            // Produce frame for a composite step
             const location: LRP.Location | null | undefined = i === 0 ? await this.runtime.getEnabledStepLocation() : stackLocations.get(stack[stack.length - i]);
             if (location === undefined) throw new Error('Undefined location for stack step.');
 
@@ -467,8 +465,17 @@ export class CustomDebugSession extends DebugSession {
         this.sendResponse(response);
     }
 
+    /**
+     * Handles cDAP services that are not originally present in DAP.
+     * 
+     * @param command 
+     * @param response 
+     * @param args 
+     * @param request 
+     * @returns 
+     */
     protected async customRequest(command: string, response: DebugProtocol.Response, args: any, request?: DebugProtocol.Request | undefined): Promise<void> {
-        // TODO: fix conflicting calls during initialization
+        // Workaround to fix conflicting calls during initialization
         while (!this.runtime.isInitDone) await new Promise<void>(resolve => setTimeout(() => {
             resolve()
         }, 200));
@@ -520,22 +527,43 @@ export class CustomDebugSession extends DebugSession {
         this.sendResponse(response);
     }
 
-    public sendStoppedEvent(reason: string, message?: string) {
+    /**
+     * Sends a {@link DebugProtocol.StoppedEvent} to the IDE.
+     * 
+     * @param reason Reason for the stopped event.
+     * @param message Message to be displayed to the end-user.
+     */
+    public sendStoppedEvent(reason: string, message?: string): void {
         const stoppedEvent: DebugProtocol.StoppedEvent = new StoppedEvent(reason, CustomDebugSession.threadID);
         if (message) stoppedEvent.body.description = message;
 
         this.sendEvent(stoppedEvent);
     }
 
-    public sendTerminatedEvent() {
+    /**
+     * Sends a {@link DebugProtocol.TerminatedEvent} to the IDE.
+     */
+    public sendTerminatedEvent(): void {
         this.sendEvent(new TerminatedEvent());
     }
 
+    /**
+     * Checks whether an object is an instance of {@link DAPExtension.EnableStepArguments}.
+     * 
+     * @param args Object to check.
+     * @returns True if the object is an instance of {@link DAPExtension.EnableStepArguments}, false otherwise.
+     */
     private isEnableStepArguments(args: any): args is DAPExtension.EnableStepArguments {
         const entries: [string, unknown][] = Object.entries(args);
         return entries.length == 1 && entries[0][0] === 'stepId';
     }
 
+    /**
+     * Checks whether an object is an instance of {@link DAPExtension.EnableBreakpointTypesArguments}.
+     * 
+     * @param args Object to check.
+     * @returns True if the object is an instance of {@link DAPExtension.EnableBreakpointTypesArguments}, false otherwise.
+     */
     private isEnableBreakpointTypesArguments(args: any): args is DAPExtension.EnableBreakpointTypesArguments {
         const entries: [string, unknown][] = Object.entries(args);
         return entries.length == 1 && entries[0][0] === 'breakpointTypeIds';

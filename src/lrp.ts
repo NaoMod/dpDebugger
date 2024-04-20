@@ -1,20 +1,35 @@
+/**
+ * Arguments to a LRP request.
+ */
 type Arguments = {
-    /** Source file targeted by the service call. */
+    /** Source file targeted by the request. */
     sourceFile: string;
 }
 
+/**
+ * Arguments for the 'parse' LRP request.
+*/
 export type ParseArguments = Arguments;
 
+/**
+ * Response to the 'parse' LRP request.
+ */
 export type ParseResponse = {
     /** Root of the AST. */
     astRoot: ModelElement;
 }
 
+/**
+ * Arguments for the 'initializeExecution' LRP request.
+*/
 export type InitializeExecutionArguments = Arguments & {
     /** Arbitrary arguments necessary for the initialization of a runtime state. */
     bindings: Bindings;
 }
 
+/**
+ * Response to the 'initializeExecution' LRP request.
+ */
 export type InitializeExecutionResponse = {};
 
 /**
@@ -25,29 +40,48 @@ export type Bindings = {
     [key: string]: unknown;
 }
 
+/**
+ * Response to the 'getBreakpointTypes' LRP request.
+ */
 export type GetBreakpointTypesResponse = {
     /** Breakpoint types defined by the language runtime. */
     breakpointTypes: BreakpointType[];
 }
 
+/**
+ * Arguments for the 'executeAtomicStep' LRP request.
+*/
 export type ExecuteAtomicStepArguments = Arguments & {
-    /** Identifier of the step. */
+    /** Identifier of the atomic step to execute. */
     stepId: string;
 }
 
+/**
+ * Response to the 'executeAtomicStep' LRP request.
+ */
 export type ExecuteAtomicStepResponse = {
+    /** Identifiers of the steps completed after the execution of the atomic step. */
     completedSteps: string[];
 }
 
+/**
+ * Arguments for the 'getRuntimeState' LRP request.
+*/
 export type GetRuntimeStateArguments = Arguments;
 
+/**
+ * Response to the 'getRuntimeState' LRP request.
+ */
 export type GetRuntimeStateResponse = {
     /** Root of the runtime state. */
     runtimeStateRoot: ModelElement;
 }
 
+/**
+ * Arguments for the 'checkBreakpoint' LRP request.
+*/
 export type CheckBreakpointArguments = Arguments & {
-    /** Identifier of the step. */
+    /** Identifier of the step on which to check the breakpoint. */
     stepId: string;
 
     /** Identifier of the breakpoint type. */
@@ -57,8 +91,14 @@ export type CheckBreakpointArguments = Arguments & {
     bindings: Bindings;
 }
 
+/**
+ * Response to the 'checkBreakpoint' LRP request.
+ */
 export type CheckBreakpointResponse = PositiveCheckBreakpointResponse | NegativeCheckBreakpointResponse;
 
+/**
+ * Positive response to the 'checkBreakpoint' LRP request.
+ */
 type PositiveCheckBreakpointResponse = {
     /** True if the breakpoint is activated, false otherwise. */
     isActivated: true;
@@ -67,6 +107,9 @@ type PositiveCheckBreakpointResponse = {
     message: string;
 }
 
+/**
+ * Negative response to the 'checkBreakpoint' LRP request.
+ */
 type NegativeCheckBreakpointResponse = {
     /** True if the breakpoint is activated, false otherwise. */
     isActivated: false;
@@ -143,21 +186,23 @@ export type BreakpointParameter = {
 /**
  * Primitive breakpoint parameter.
  */
-export type PrimitiveBreakpointParameter = {
+type PrimitiveBreakpointParameter = {
+    /** Type of the parameter. */
     type: 'primitive';
 
-    /** Primitive type of the parameter. */
+    /** Primitive type of the primitive parameter. */
     primitiveType: PrimitiveType;
 }
 
 /**
  * Object breakpoint parameter.
  */
-export type ObjectBreakpointParameter = {
+type ObjectBreakpointParameter = {
+    /** Type of the parameter. */
     type: 'object';
 
     /**
-     * Object type of the parameter.
+     * Object type of the object parameter.
      * If the object is a model element, the type is the same as defined in {@link ModelElement.type}.
      */
     objectType: string;
@@ -172,29 +217,61 @@ export enum PrimitiveType {
     NUMBER = 'number'
 }
 
+/**
+ * Arguments for the 'getAvailableSteps' LRP request.
+*/
 export type GetAvailableStepsArguments = Arguments;
 
+/**
+ * Response to the 'getAvailableSteps' LRP request.
+ */
 export type GetAvailableStepsResponse = {
+    /** Currently available steps. */
     availableSteps: Step[];
 }
 
+/**
+ * Arguments for the 'enterCompositeStep' LRP request.
+*/
 export type EnterCompositeStepArguments = Arguments & {
+    /** Identifier of the composite step to enter. */
     stepId: string;
 };
 
+/**
+ * Response to the 'enterCompositeStep' LRP request.
+ */
 export type EnterCompositeStepResponse = {};
 
+/**
+ * Execution step.
+ */
 export type Step = {
+    /** Unique identifier of the step. */
     id: string;
+
+    /** Human-readable name of the step. */
     name: string;
+
+    /** True if the step is composite, false otherwise. */
     isComposite: boolean;
+
+    /** Human-readable description of the step. */
     description?: string;
 }
 
+/**
+ * Arguments for the 'getStepLocation' LRP request.
+*/
 export type GetStepLocationArguments = Arguments & {
+    /** Identifier of the step for which to retrieve the location. */
     stepId: string;
 }
 
+/**
+ * Response to the 'getStepLocation' LRP request.
+ */
 export type GetStepLocationResponse = {
+    /** Location of the step. */
     location?: Location;
 }

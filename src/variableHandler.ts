@@ -4,23 +4,34 @@ import * as LRP from "./lrp";
 export const AST_ROOT_VARIABLES_REFERENCE: number = 1;
 export const RUNTIME_STATE_ROOT_VARIABLES_REFERENCE: number = 2;
 
-
 /**
  * Handles the storage and retrieval of model elements (both for the AST and runtime state)
  * as {@link Variable} used by DAP. For more info about this, see the documentation about DAP variables: 
  * {@link https://microsoft.github.io/debug-adapter-protocol/specification#Types_Variable}.
  */
 export class VariableHandler {
+    /** Root of the AST. */
     private astRoot: LRP.ModelElement;
+
+    /** Root of the runtime state. */
     private runtimeStateRoot?: LRP.ModelElement;
 
+    /** Map from IDs to AST elements. */
     private idToAstElement: Map<string, LRP.ModelElement>;
+
+    /** Multivalued references contained by some elements of the AST. */
     private astMultivaluedRefs: Set<any[]>;
+
+    /** Map from IDs to runtime state elements. */
     private idToRuntimeStateElement: Map<string, LRP.ModelElement>;
+
+    /** Multivalued references contained by some elements of the runtime state. */
     private runtimeStateMultivaluedRefs: Set<any[]>;
 
+    /** Registry of current variables references. */
     private variableReferenceRegistry: VariableReferenceRegistry;
 
+    /** Current reference to assign. */
     private currentReference: number;
 
     constructor(astRoot: LRP.ModelElement) {
@@ -44,7 +55,7 @@ export class VariableHandler {
      * 
      * Should only be called after {@link initExecution} has been called.
      * 
-     * @param variablesReference The reference of the variables.
+     * @param variablesReference Reference of the variables.
      * @returns The list of variables associated to the given reference.
      */
     public getVariables(variablesReference: number): Variable[] {
@@ -59,6 +70,9 @@ export class VariableHandler {
         throw new Error('Object with variables reference ' + variablesReference + ' is neither an array or a ModelElement.');
     }
 
+    /**
+     * Invalidates the current runtime state.
+     */
     public invalidateRuntime(): void {
         this.runtimeStateRoot = undefined;
         this.idToRuntimeStateElement.clear();
@@ -71,7 +85,7 @@ export class VariableHandler {
     /**
      * Updates the current runtime state.
      * 
-     * @param runtimeStateRoot The new runtime state.
+     * @param runtimeStateRoot New runtime state.
      */
     public updateRuntime(runtimeStateRoot: LRP.ModelElement): void {
         this.runtimeStateRoot = runtimeStateRoot;
@@ -90,7 +104,7 @@ export class VariableHandler {
     /**
      * Retrieves the variables contained in a model element.
      * 
-     * @param element The model element for which to retrieve variables.
+     * @param element Model element for which to retrieve variables.
      * @returns The variables corresponding to the attributes, references and children of the model element.
      */
     private getVariablesForModelElement(element: LRP.ModelElement): Variable[] {
@@ -114,7 +128,7 @@ export class VariableHandler {
     /**
      * Retrieves the variables contained in an array.
      * 
-     * @param array The array for which to retrieve variables.
+     * @param array Array for which to retrieve variables.
      * @returns The variables corresponding to the elements contained in the array.
      */
     private getVariablesForArray(array: any[]): Variable[] {
@@ -133,6 +147,13 @@ export class VariableHandler {
         return variables;
     }
 
+
+    /**
+     * Processes a model element and its descendants to retrieve a {@link ProcessedModelRoot}.
+     * 
+     * @param modelRoot Root element to process.
+     * @returns The processed model.
+     */
     private process(modelRoot: LRP.ModelElement): ProcessedModelRoot {
         return {
             idToElement: this.buildRegistry(modelRoot),
@@ -141,9 +162,9 @@ export class VariableHandler {
     }
 
     /**
-     * Adds model elements to the registry of all model elements.
+     * Adds a model element and its desceendants to the registry of all model elements.
      * 
-     * @param element The element from which to add model elements. All model elements recursively contained by the 
+     * @param element Element from which to add model elements. All model elements recursively contained by the 
      * root will be added to the registry.
      * @returns The registry built from the model root.
      */
@@ -166,6 +187,12 @@ export class VariableHandler {
         return res;
     }
 
+    /**
+     * Finds the multivalued refs contained by a model element and its descendants.
+     * 
+     * @param element Element from which to search for multivalued references.
+     * @returns The set of multivalued references.
+     */
     private findMultivaluedRefs(element: LRP.ModelElement): Set<any[]> {
         let res: Set<any[]> = new Set();
         if (element == null) return res;
@@ -192,8 +219,8 @@ export class VariableHandler {
     /**
      * Creates a variable for an object.
      * 
-     * @param name The name of the variable.
-     * @param object The object for which to create the variable.
+     * @param name Name of the variable.
+     * @param object Object for which to create the variable.
      * @returns The variable corresponding to the object.
      */
     private createVariable(name: string, object: any): Variable {
@@ -210,8 +237,8 @@ export class VariableHandler {
     /**
      * Creates a variable for a reference.
      * 
-     * @param name The name of the variable.
-     * @param ref The reference for which to create the variable.
+     * @param name Name of the variable.
+     * @param ref Reference for which to create the variable.
      * @returns The variable corresponding to the reference.
      */
     private createVariableFromRef(name: string, ref: string | string[]): Variable {
@@ -235,7 +262,7 @@ export class VariableHandler {
     /**
      * Retrieves the reference associated to an object.
      * 
-     * @param object The object for which to retrieve the reference.
+     * @param object Object for which to retrieve the reference.
      * @returns The reference associated to the object.
      */
     private getReference(object: any): number {
@@ -252,7 +279,7 @@ export class VariableHandler {
     /**
      * Checks whether an object is a model element.
      * 
-     * @param object The object to check.
+     * @param object Object to check.
      * @returns True if the object is a model element, false otherwise.
      */
     private isModelElement(object: any): object is LRP.ModelElement {
@@ -271,8 +298,10 @@ export class VariableHandler {
  * Stores the variables reference for model elements and arrays.
  */
 class VariableReferenceRegistry {
-
+    /** Map from references to their associated element or literal value. */
     private referenceToObject: Map<number, any>;
+
+    /** Map of elements or literal values to their reference. */
     private objectToReference: Map<any, number>;
 
     constructor() {
@@ -283,8 +312,8 @@ class VariableReferenceRegistry {
     /**
      * Associates a variables reference to an object (either a model element or an array).
      * 
-     * @param object The object to give a variables reference to.
-     * @param reference The variables reference to give to the object.
+     * @param object Object to give a variables reference to.
+     * @param reference Variables reference to give to the object.
      * @returns True if the variables reference was successfully associated to the object, false otherwise.
      */
     public set(object: any, reference: number): boolean {
@@ -299,7 +328,7 @@ class VariableReferenceRegistry {
     /**
      * Retrieves the object with the given variables reference.
      * 
-     * @param reference The variables reference of the object to return.
+     * @param reference Variables reference of the object to return.
      * @returns The object with the given variables reference.
      */
     public getObject(reference: number): any | undefined {
@@ -309,7 +338,7 @@ class VariableReferenceRegistry {
     /**
      * Retrieves the variables reference of the given object.
      * 
-     * @param object The object for which to return a variables reference.
+     * @param object Object for which to return a variables reference.
      * @returns Th variables reference of the object, or undefined if it has no variables reference.
      */
     public getReference(object: any): number | undefined {
@@ -325,6 +354,7 @@ class VariableReferenceRegistry {
     }
 }
 
+/** Stores information retrieved after the processing of a root model element. */
 type ProcessedModelRoot = {
     idToElement: Map<string, LRP.ModelElement>;
     multivaluedRefs: Set<any[]>;
