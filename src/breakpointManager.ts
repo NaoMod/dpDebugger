@@ -16,7 +16,7 @@ export class CDAPBreakpointManager {
     /** Available breakpoint types defined by the language runtime. */
     readonly _availableBreakpointTypes: LRP.BreakpointType[];
 
-    /** Currently enabled breakpoints targeting an AST element. */
+    /** Map from AST elements' types to the currently enabled breakpoints targeting this type of AST element. */
     private enabledElementBreakpointTypes: Map<string, LRP.BreakpointType[]>;
 
     /** AST elements with at least one breakpoint targeting them. */
@@ -266,13 +266,13 @@ export interface ActivatedBreakpoint {
  * Allows quick retrieval of model elements.
  */
 class ASTElementRegistry {
-    /** Map of IDs to AST elements. */
+    /** Map of IDs to their associated AST element. */
     private elements: Map<string, LRP.ModelElement>;
 
     /** Map of AST element IDS to the ID of their parent element. */
     private parents: Map<string, string>;
 
-    /** Map of lines to the AST element they contain. */
+    /** Map of lines to the AST elements they contain. */
     private locations: Map<number, LRP.ModelElement[]>;
 
     constructor(astRoot: LRP.ModelElement) {

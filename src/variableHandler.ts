@@ -16,13 +16,13 @@ export class VariableHandler {
     /** Root of the runtime state. */
     private runtimeStateRoot?: LRP.ModelElement;
 
-    /** Map from IDs to AST elements. */
+    /** Map from IDs to their associated AST element. */
     private idToAstElement: Map<string, LRP.ModelElement>;
 
     /** Multivalued references contained by some elements of the AST. */
     private astMultivaluedRefs: Set<any[]>;
 
-    /** Map from IDs to runtime state elements. */
+    /** Map from IDs to  their associated runtime state element. */
     private idToRuntimeStateElement: Map<string, LRP.ModelElement>;
 
     /** Multivalued references contained by some elements of the runtime state. */

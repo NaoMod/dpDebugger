@@ -501,6 +501,7 @@ export class CustomDebugRuntime {
      * 
      * @param step Step to enter.
      * @throws {StepNotCompositeError} If the step is not composite.
+     * @throws {ActivatedBreakpointError} If a breakpoint is activated before entering the step.
      */
     private async enterCompositeStep(step: LRP.Step): Promise<void> {
         if (!step.isComposite) throw new StepNotCompositeError(step);
@@ -530,6 +531,7 @@ export class CustomDebugRuntime {
      * @param step Step to execute.
      * @returns The list of IDs of steps that were completed.
      * @throws {StepNotAtomicError} If the step is not atomic.
+     * @throws {ActivatedBreakpointError} If a breakpoint is activated before executing the step.
      */
     private async executeAtomicStep(step: LRP.Step): Promise<string[]> {
         if (step.isComposite) throw new StepNotAtomicError(step);
@@ -613,7 +615,6 @@ export class CustomDebugRuntime {
 class NonDeterminismError implements Error {
     name: string;
     message: string;
-    stack?: string | undefined;
 
     constructor() {
         this.name = 'NonDeterminismError';
@@ -624,8 +625,6 @@ class NonDeterminismError implements Error {
 class ActivatedBreakpointError implements Error {
     name: string;
     message: string;
-    stack?: string | undefined;
-
     breakpoint: ActivatedBreakpoint;
 
     constructor(breakpoint: ActivatedBreakpoint) {
@@ -638,7 +637,6 @@ class ActivatedBreakpointError implements Error {
 class NoEnabledStepError implements Error {
     name: string;
     message: string;
-    stack?: string | undefined;
 
     constructor() {
         this.name = 'NoEnabledStepError';
@@ -649,7 +647,6 @@ class NoEnabledStepError implements Error {
 class TerminationEventSentError implements Error {
     name: string;
     message: string;
-    stack?: string | undefined;
 
     constructor() {
         this.name = 'TerminationEventSentError';
@@ -660,8 +657,6 @@ class TerminationEventSentError implements Error {
 class StepNotCompositeError implements Error {
     name: string;
     message: string;
-    stack?: string | undefined;
-
     step: LRP.Step;
 
     constructor(step: LRP.Step) {
@@ -674,8 +669,6 @@ class StepNotCompositeError implements Error {
 class StepNotAtomicError implements Error {
     name: string;
     message: string;
-    stack?: string | undefined;
-
     step: LRP.Step;
 
     constructor(step: LRP.Step) {

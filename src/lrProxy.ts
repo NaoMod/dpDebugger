@@ -130,7 +130,7 @@ export class LanguageRuntimeProxy extends Proxy {
     }
 
     /**
-     * Asks the language runtime to the location of a step in the runtime state associated to the given source file.
+     * Asks the language runtime to return the location of a step in the runtime state associated to the given source file.
      * The possible steps are exposed by the language runtime through the {@link getAvailableSteps} service.
      * 
      * @param args Arguments of the request.
