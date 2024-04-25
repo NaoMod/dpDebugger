@@ -203,7 +203,7 @@ type ObjectBreakpointParameter = {
 
     /**
      * Object type of the object parameter.
-     * If the object is a model element, the type is the same as defined in {@link ModelElement.type}.
+     * If the object is a model element, the type is the same as defined in {@link ModelElement.types}.
      */
     objectType: string;
 }
