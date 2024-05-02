@@ -201,10 +201,7 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected async threadsRequest(response: DebugProtocol.ThreadsResponse, request?: DebugProtocol.Request | undefined): Promise<void> {
-        // Workaround to fix conflicting calls during initialization
-        while (!this.runtime.isInitDone) await new Promise<void>(resolve => setTimeout(() => {
-            resolve()
-        }, 200));
+        await this.runtime.waitForInitialization();
 
         // Mock thread
         response.body = {
@@ -302,17 +299,12 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected async setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
-        // Workaround to fix conflicting calls during initialization
-        while (!this.runtime.isInitDone) await new Promise<void>(resolve => setTimeout(() => {
-            resolve()
-        }, 200));
-
         let breakpoints: DebugProtocol.Breakpoint[];
 
         if (args.source.path != this.runtime.sourceFile && args.source.name != this.runtime.sourceFile) {
             breakpoints = args.breakpoints ? args.breakpoints.map(() => new Breakpoint(false)) : [];
         } else {
-            breakpoints = this.runtime.breakpointManager.setBreakpoints(args.breakpoints!);
+            breakpoints = await this.runtime.setBreakpoints(args.breakpoints!);
         }
 
         response.body = {
@@ -475,10 +467,7 @@ export class CustomDebugSession extends DebugSession {
      * @returns 
      */
     protected async customRequest(command: string, response: DebugProtocol.Response, args: any, request?: DebugProtocol.Request | undefined): Promise<void> {
-        // Workaround to fix conflicting calls during initialization
-        while (!this.runtime.isInitDone) await new Promise<void>(resolve => setTimeout(() => {
-            resolve()
-        }, 200));
+        await this.runtime.waitForInitialization();
 
         switch (command) {
             case 'getBreakpointTypes':

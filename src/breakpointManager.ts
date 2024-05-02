@@ -131,7 +131,7 @@ export class CDAPBreakpointManager {
     }
 
     /**
-     * Sets multiple breakpoints.
+     * Sets multiple domain-specific breakpoints from source breakpoints.
      * Previously set breakpoints are removed.
      * 
      * @param breakpoints Source breakpoints to be set.

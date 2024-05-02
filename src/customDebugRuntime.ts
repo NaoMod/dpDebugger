@@ -1,4 +1,5 @@
 import { Variable } from "@vscode/debugadapter";
+import { DebugProtocol } from "@vscode/debugprotocol";
 import * as DAPExtension from "./DAPExtension";
 import { ActivatedBreakpoint, CDAPBreakpointManager } from "./breakpointManager";
 import { CustomDebugSession } from "./customDebugSession";
@@ -35,8 +36,11 @@ export class CustomDebugRuntime {
     /** Facility responsible for variable management for this debug runtime. */
     private variableHandler: VariableHandler;
 
-    /** True if the initializationof the execution of the source file is done. */
-    private _isInitDone: boolean;
+    /** Current status regarding the initialization of the runtime. */
+    private initializationStatus: InitializationStatus;
+
+    /**  */
+    private initialBreakpointsRequest: InitialBreakpointsRequest | null;
 
     /** True if the execution of the source file is done. */
     private _isExecutionDone: boolean;
@@ -58,9 +62,10 @@ export class CustomDebugRuntime {
         this.skipRedundantPauses = skipRedundantPauses;
         this.debugSession = debugSession;
         this.lrProxy = new LanguageRuntimeProxy(languageRuntimePort);
-        this._isInitDone = false;
+        this.initializationStatus = new InitializationStatus();
         this.pausedOnCurrentStep = true;
         this.pausedOnStart = false;
+        this.initialBreakpointsRequest = null;
     }
 
     /**
@@ -80,6 +85,7 @@ export class CustomDebugRuntime {
 
         const getBreakpointTypes: LRP.GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
         this._breakpointManager = new CDAPBreakpointManager(sourceFile, this.lrProxy, parseResponse.astRoot, getBreakpointTypes.breakpointTypes);
+        if (this.initialBreakpointsRequest !== null) this.initialBreakpointsRequest.resolve(this._breakpointManager);
         this.variableHandler = new VariableHandler(parseResponse.astRoot);
 
         const getAvailableStepsResponse: LRP.GetAvailableStepsResponse = await this.lrProxy.getAvailableSteps({ sourceFile: sourceFile });
@@ -87,7 +93,7 @@ export class CustomDebugRuntime {
         this._stepManager = new StepManager(getAvailableStepsResponse.availableSteps);
         this._isExecutionDone = this._stepManager.availableSteps.length == 0;
         this.pauseRequired = false;
-        this._isInitDone = true;
+        this.initializationStatus.setTrue();
 
         if (pauseOnStart) {
             this.pausedOnStart = true;
@@ -394,6 +400,30 @@ export class CustomDebugRuntime {
         this._stepManager.enableStep(stepId);
     }
 
+    /**
+     * Waits for the initialization of the runtime to be completed.
+     */
+    public async waitForInitialization(): Promise<void> {
+        return this.initializationStatus.wait();
+    }
+
+    /**
+     * Sets multiple domain-specific breakpoints from source breakpoints.
+     * Previously set breakpoints are removed.
+     * 
+     * @param breakpoints Source breakpoints applied to the source file.
+     * @returns The validated breakpoints.
+     */
+    public async setBreakpoints(breakpoints: DebugProtocol.SourceBreakpoint[]): Promise<DebugProtocol.Breakpoint[]> {
+        return new Promise<DebugProtocol.Breakpoint[]>(resolve => {
+            if (this._breakpointManager !== undefined) {
+                resolve(this._breakpointManager.setBreakpoints(breakpoints));
+            } else {
+                this.initialBreakpointsRequest = new InitialBreakpointsRequest(breakpoints, resolve);
+            }
+        });
+    }
+
     public get sourceFile(): string {
         return this._sourceFile;
     }
@@ -404,10 +434,6 @@ export class CustomDebugRuntime {
 
     public get breakpointManager(): CDAPBreakpointManager {
         return this._breakpointManager;
-    }
-
-    public get isInitDone(): boolean {
-        return this._isInitDone;
     }
 
     public get terminatedEventSent(): boolean {
@@ -609,6 +635,35 @@ export class CustomDebugRuntime {
         }
 
         throw new TerminationEventSentError();
+    }
+}
+
+class InitializationStatus {
+    private done: boolean = false;
+    private resolveFuncs: (() => void)[] = [];
+
+    public setTrue(): void {
+        this.done = true;
+        this.resolveFuncs.forEach(resolve => resolve());
+        this.resolveFuncs = [];
+    }
+
+    public async wait(): Promise<void> {
+        return new Promise<void>(resolve => {
+            if (this.done) {
+                resolve();
+            } else {
+                this.resolveFuncs.push(resolve);
+            }
+        });
+    }
+}
+
+class InitialBreakpointsRequest {
+    constructor(private sourceBreakpoints: DebugProtocol.SourceBreakpoint[], private resolveFunc: ((x: DebugProtocol.Breakpoint[]) => void)) { }
+
+    public resolve(breakpointManager: CDAPBreakpointManager): void {
+        this.resolveFunc(breakpointManager.setBreakpoints(this.sourceBreakpoints));
     }
 }
 
