@@ -42,6 +42,9 @@ export class VariableHandler {
         this.idToAstElement = processedAst.idToElement;
         this.astMultivaluedRefs = processedAst.multivaluedRefs;
 
+        this.idToRuntimeStateElement = new Map();
+        this.runtimeStateMultivaluedRefs = new Set();
+
         this.variableReferenceRegistry = new VariableReferenceRegistry();
         this.variableReferenceRegistry.set(astRoot, AST_ROOT_VARIABLES_REFERENCE);
 
