@@ -1,3 +1,6 @@
+/**
+ * Arguments of a cDAP request.
+ */
 type Arguments = {
     /** Source file targeted by the service call. */
     sourceFile: string;
@@ -15,7 +18,12 @@ type Leaf = {
 
     /** Human-readable description of the item. */
     description?: string;
+}
 
+/**
+ * Leaf which can be enabled or disabled.
+ */
+type EnablableLeaf = Leaf & {
     /** True if this item is currently enabled, false otherwise. */
     isEnabled: boolean;
 }
@@ -23,10 +31,7 @@ type Leaf = {
 /**
  * Arguments for the 'getBreakpointTypes' cDAP request.
 */
-export type EnableBreakpointTypesArguments = Arguments & {
-    /** Breakpoint types to enable. */
-    breakpointTypeIds: string[];
-}
+export type GetBreakpointTypesArguments = Arguments;
 
 /**
  * Response to the 'getBreakpointTypes' cDAP request.
@@ -41,19 +46,70 @@ export type GetBreakpointTypesResponse = {
  */
 export type BreakpointType = Leaf & {
     /** Type of the element targeted by this breakpoint type. */
-    targetElementTypeId?: string;
+    targetElementType?: string;
 }
 
 /**
- * Arguments for the 'enableStep' cDAP request.
+ * Arguments for the 'getEnabledStandaloneBreakpointTypes' cDAP request.
 */
-export type EnableStepArguments = Arguments & {
-    /** Id of the step to enable. */
-    stepId: string;
+export type GetEnabledStandaloneBreakpointTypesArguments = Arguments;
+
+/**
+ * Response to the 'getEnabledStandaloneBreakpointTypes' cDAP request.
+ */
+export type GetEnabledStandaloneBreakpointTypesResponse = {
+    /** IDs of the currently enabled standalone breakpoint types. */
+    enabledStandaloneBreakpointTypesIds: string[];
 }
 
 /**
- * Response to the 'enableStep' cDAP request.
+ * Arguments for the 'enableStandaloneBreakpointTypes' cDAP request.
+*/
+export type EnableStandaloneBreakpointTypesArguments = Arguments & {
+    /** IDs of the standalone breakpoint types to enable. */
+    breakpointTypeIds: string[];
+}
+
+/**
+ * Arguments for the 'getDomainSpecificBreakpoints' cDAP request.
+ */
+export type GetDomainSpecificBreakpointsArguments = Arguments;
+
+/**
+ * Response to the 'getDomainSpecificBreakpoints' cDAP request.
+ */
+export type GetDomainSpecificBreakpointsResponse = {
+    /** Domain-specific breakpoints currently enabled. */
+    breakpoints: DomainSpecificBreakpoint[];
+}
+
+/**
+ * Arguments for the 'setDomainSpecificBreakpoints' cDAP request.
+*/
+export type SetDomainSpecificBreakpointsArguments = Arguments & {
+    /** Domain-specific breakpoints to create. */
+    breakpoints: DomainSpecificBreakpoint[];
+}
+
+/** Domain-specific breakpoint. */
+export type DomainSpecificBreakpoint = {
+    /** ID of the source breakpoint from which to create a domain-specific breakpoint. */
+    sourceBreakpointId: number;
+
+    /** IDs of the parameterized breakpoint types to enable for this domain-specific breakpoint. */
+    enabledBreakpointTypeIds: string[];
+
+    /** Types of the element targeted by the source breakpoint. */
+    targetElementTypes: string[];
+}
+
+/**
+ * Arguments for the 'getAvailableSteps' cDAP request.
+*/
+export type GetAvailableStepsArguments = Arguments;
+
+/**
+ * Response to the 'getAvailableSteps' cDAP request.
 */
 export type GetAvailableStepsResponse = {
     /** Currently available steps. */
@@ -61,6 +117,14 @@ export type GetAvailableStepsResponse = {
 }
 
 /**
+ * Arguments for the 'enableStep' cDAP request.
+*/
+export type EnableStepArguments = Arguments & {
+    /** ID of the step to enable. */
+    stepId: string;
+}
+
+/**
  * Execution step listed by the language runtime.
 */
-export type Step = Leaf;
+export type Step = EnablableLeaf;

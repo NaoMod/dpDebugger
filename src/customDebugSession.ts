@@ -1,7 +1,7 @@
-import { Breakpoint, DebugSession, InitializedEvent, InvalidatedEvent, Response, Scope, Source, StackFrame, StoppedEvent, TerminatedEvent, Thread } from "@vscode/debugadapter";
+import { Breakpoint, DebugSession, InitializedEvent, Response, Scope, Source, StackFrame, StoppedEvent, TerminatedEvent, Thread } from "@vscode/debugadapter";
 import { DebugProtocol } from "@vscode/debugprotocol";
-import * as DAPExtension from "./DAPExtension";
 import { CustomDebugRuntime } from "./customDebugRuntime";
+import { CustomRequestHandler, CustomRequestResult } from "./customRequestHandler";
 import * as LRP from "./lrp";
 import { AST_ROOT_VARIABLES_REFERENCE, RUNTIME_STATE_ROOT_VARIABLES_REFERENCE } from "./variableHandler";
 
@@ -45,6 +45,7 @@ export class CustomDebugSession extends DebugSession {
     private isInitialized: boolean = false;
     private runtime: CustomDebugRuntime;
     private initializeArgs: DebugProtocol.InitializeRequestArguments;
+    private customRequestHandler: CustomRequestHandler;
 
     /**
      * 
@@ -227,10 +228,11 @@ export class CustomDebugSession extends DebugSession {
         if (args.noDebug) throw new Error('Debugging must be enabled.');
 
         this.runtime = new CustomDebugRuntime(this, args.languageRuntimePort, args.pauseOnEnd ? args.pauseOnEnd : false, args.skipRedundantPauses ? args.skipRedundantPauses : false);
+        this.customRequestHandler = new CustomRequestHandler(this.runtime);
         await this.runtime.initializeExecution(args.sourceFile, args.pauseOnStart ? args.pauseOnStart : false, args.additionalArgs);
         this.runtime.breakpointManager.setFormat(this.initializeArgs.linesStartAt1 == undefined ? true : this.initializeArgs.linesStartAt1, this.initializeArgs.columnsStartAt1 == undefined ? true : this.initializeArgs.columnsStartAt1);
 
-        if (args.enabledBreakpointTypeIds) this.runtime.breakpointManager.enableBreakpointTypes(args.enabledBreakpointTypeIds);
+        if (args.enabledBreakpointTypeIds) this.runtime.breakpointManager.registerDefaultBreakpointTypes(args.enabledBreakpointTypeIds);
 
         if (!args.pauseOnStart && !this.runtime.isExecutionDone) this.runtime.run();
     }
@@ -469,51 +471,15 @@ export class CustomDebugSession extends DebugSession {
     protected async customRequest(command: string, response: DebugProtocol.Response, args: any, request?: DebugProtocol.Request | undefined): Promise<void> {
         await this.runtime.waitForInitialization();
 
-        switch (command) {
-            case 'getBreakpointTypes':
-                const res: DAPExtension.GetBreakpointTypesResponse = {
-                    breakpointTypes: this.runtime.breakpointManager.availableBreakpointTypes
-                };
+        const customRequestResponse: CustomRequestResult = this.customRequestHandler.handle(command, response, args);
 
-                response.body = res;
-
-                break;
-
-            case 'enableBreakpointTypes':
-                if (this.isEnableBreakpointTypesArguments(args)) {
-                    this.runtime.breakpointManager.enableBreakpointTypes(args.breakpointTypeIds);
-                }
-
-                break;
-
-            case 'getAvailableSteps':
-                const availableStepsBody: DAPExtension.GetAvailableStepsResponse = {
-                    availableSteps: this.runtime.getAvailableSteps()
-                };
-
-                response.body = availableStepsBody;
-
-                break;
-
-            case 'enableStep':
-                if (this.isEnableStepArguments(args)) {
-                    this.runtime.enableStep(args.stepId);
-                    this.sendEvent(new InvalidatedEvent(['stacks']));
-                }
-
-                break;
-
-            default:
-                this.sendErrorResponse(response, {
-                    id: 100, format: '{_exception}', variables: {
-                        _exception: 'Unknwon custom method ' + command + '.'
-                    }
-                });
-
-                return;
+        if (customRequestResponse.status === 'success') {
+            if (customRequestResponse.event !== undefined) this.sendEvent(customRequestResponse.event);
+            if (customRequestResponse.response !== undefined) this.sendResponse(customRequestResponse.response);
+            return;
         }
 
-        this.sendResponse(response);
+        this.sendErrorResponse(response, customRequestResponse.error);
     }
 
     /**
@@ -534,27 +500,5 @@ export class CustomDebugSession extends DebugSession {
      */
     public sendTerminatedEvent(): void {
         this.sendEvent(new TerminatedEvent());
-    }
-
-    /**
-     * Checks whether an object is an instance of {@link DAPExtension.EnableStepArguments}.
-     * 
-     * @param args Object to check.
-     * @returns True if the object is an instance of {@link DAPExtension.EnableStepArguments}, false otherwise.
-     */
-    private isEnableStepArguments(args: any): args is DAPExtension.EnableStepArguments {
-        const entries: [string, unknown][] = Object.entries(args);
-        return entries.length == 1 && entries[0][0] === 'stepId';
-    }
-
-    /**
-     * Checks whether an object is an instance of {@link DAPExtension.EnableBreakpointTypesArguments}.
-     * 
-     * @param args Object to check.
-     * @returns True if the object is an instance of {@link DAPExtension.EnableBreakpointTypesArguments}, false otherwise.
-     */
-    private isEnableBreakpointTypesArguments(args: any): args is DAPExtension.EnableBreakpointTypesArguments {
-        const entries: [string, unknown][] = Object.entries(args);
-        return entries.length == 1 && entries[0][0] === 'breakpointTypeIds';
     }
 }
