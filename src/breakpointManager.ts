@@ -147,7 +147,7 @@ export class CDAPBreakpointManager {
 
             // source breakpoint already used in an existing domain-specific breakpoint
             if (previousDomainSpecificBreakpoint !== undefined) {
-                previousDomainSpecificBreakpoint.id == currentId;
+                previousDomainSpecificBreakpoint.id = currentId;
                 newDomainSpecificBreakpoints.set(previousDomainSpecificBreakpoint.id, previousDomainSpecificBreakpoint);
                 setBreakpoints.push({ id: previousDomainSpecificBreakpoint.id, verified: true });
 
@@ -239,13 +239,6 @@ export class CDAPBreakpointManager {
         }
     }
 
-    public getSourceBreakpointTargetTypes(breakpointId: number): string[] {
-        const domainSpecificBreakpoint: DomainSpecificBreakpoint | undefined = this._domainSpecificBreakpoints.get(breakpointId);
-        if (domainSpecificBreakpoint === undefined) throw new Error(`Unknown breakpoint ID ${breakpointId}.`);
-
-        return domainSpecificBreakpoint.targetElement.types;
-    }
-
     /** cDAP-compatible representation of available breakpoint types. */
     public get availableBreakpointTypes(): DAPExtension.BreakpointType[] {
         const availableBreakpointTypes: LRP.BreakpointType[] = Array.from(this._availableStandaloneBreakpointTypes.values());
@@ -280,22 +273,6 @@ export class CDAPBreakpointManager {
             targetElementTypes: b.targetElement.types
         }));
     }
-
-    /**
-     * Checks whether a breakpoint type is currently enabled.
-     * 
-     * @param breakpointType Breakpoint type to check for.
-     * @returns True if the breakpoint type is currently enabled, false otherwise.
-     */
-    /*     private isBreakpointTypeEnabled(breakpointType: LRP.BreakpointType): boolean {
-            if (!this._availableBreakpointTypes.includes(breakpointType)) return false;
-            if (breakpointType.parameters.length == 0) return this._enabledStandaloneBreakpoints.has(breakpointType);
-    
-            if (breakpointType.parameters[0].type == 'primitive') throw new Error('Object breakpoint parameter expected.');
-    
-            const enabledBreakpointTypesForTargetType: LRP.BreakpointType[] | undefined = this.enabledElementBreakpointTypes.get(breakpointType.parameters[0].objectType);
-            return enabledBreakpointTypesForTargetType !== undefined && enabledBreakpointTypesForTargetType.includes(breakpointType);
-        } */
 
     private retrieveDomainSpecificBreakpointFromSourceBreakpoint(sourceBreakpoint: DebugProtocol.SourceBreakpoint, previousDomainSpecificBreakpoints: Map<number, DomainSpecificBreakpoint>): DomainSpecificBreakpoint | undefined {
         return Array.from(previousDomainSpecificBreakpoints.values()).find(b => b.sourceBreakpoint.line === sourceBreakpoint.line && b.sourceBreakpoint.column === sourceBreakpoint.column);

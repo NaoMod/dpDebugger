@@ -1,6 +1,6 @@
 import { Breakpoint, DebugSession, InitializedEvent, Response, Scope, Source, StackFrame, StoppedEvent, TerminatedEvent, Thread } from "@vscode/debugadapter";
 import { DebugProtocol } from "@vscode/debugprotocol";
-import { CustomDebugRuntime } from "./customDebugRuntime";
+import { BreakpointManagerInitializationParams, CustomDebugRuntime } from "./customDebugRuntime";
 import { CustomRequestHandler, CustomRequestResult } from "./customRequestHandler";
 import * as LRP from "./lrp";
 import { AST_ROOT_VARIABLES_REFERENCE, RUNTIME_STATE_ROOT_VARIABLES_REFERENCE } from "./variableHandler";
@@ -227,13 +227,16 @@ export class CustomDebugSession extends DebugSession {
         this.sendResponse(response);
         if (args.noDebug) throw new Error('Debugging must be enabled.');
 
-        this.runtime = new CustomDebugRuntime(this, args.languageRuntimePort, args.pauseOnEnd ? args.pauseOnEnd : false, args.skipRedundantPauses ? args.skipRedundantPauses : false);
+        this.runtime = new CustomDebugRuntime(this, args.sourceFile, args.languageRuntimePort, args.pauseOnEnd ? args.pauseOnEnd : false, args.skipRedundantPauses ? args.skipRedundantPauses : false);
         this.customRequestHandler = new CustomRequestHandler(this.runtime);
-        await this.runtime.initializeExecution(args.sourceFile, args.pauseOnStart ? args.pauseOnStart : false, args.additionalArgs);
-        this.runtime.breakpointManager.setFormat(this.initializeArgs.linesStartAt1 == undefined ? true : this.initializeArgs.linesStartAt1, this.initializeArgs.columnsStartAt1 == undefined ? true : this.initializeArgs.columnsStartAt1);
 
-        if (args.enabledBreakpointTypeIds) this.runtime.breakpointManager.registerDefaultBreakpointTypes(args.enabledBreakpointTypeIds);
-
+        const breakpointManagerInitializationParams: BreakpointManagerInitializationParams = {
+            linesStartAt1: this.initializeArgs.linesStartAt1 == undefined ? true : this.initializeArgs.linesStartAt1,
+            columnsStartAt1: this.initializeArgs.columnsStartAt1 == undefined ? true : this.initializeArgs.columnsStartAt1,
+            enabledBreakpointTypeIds: args.enabledBreakpointTypeIds
+        }
+        await this.runtime.initializeExecution(args.pauseOnStart ? args.pauseOnStart : false, breakpointManagerInitializationParams, args.additionalArgs);
+        
         if (!args.pauseOnStart && !this.runtime.isExecutionDone) this.runtime.run();
     }
 

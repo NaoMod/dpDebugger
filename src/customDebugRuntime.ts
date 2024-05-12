@@ -57,7 +57,8 @@ export class CustomDebugRuntime {
     /** True if the execution is currently paused at the start. */
     private pausedOnStart: boolean;
 
-    constructor(debugSession: CustomDebugSession, languageRuntimePort: number, pauseOnEnd: boolean, skipRedundantPauses: boolean) {
+    constructor(debugSession: CustomDebugSession, sourceFile: string, languageRuntimePort: number, pauseOnEnd: boolean, skipRedundantPauses: boolean) {
+        this._sourceFile = sourceFile;
         this.pauseOnEnd = pauseOnEnd;
         this.skipRedundantPauses = skipRedundantPauses;
         this.debugSession = debugSession;
@@ -75,20 +76,19 @@ export class CustomDebugRuntime {
      * @param pauseOnStart True if a pause must be triggered after the initialization, false otherwise.
      * @param additionalArgs Additional arguments necessary to initialize the execution.
      */
-    public async initializeExecution(sourceFile: string, pauseOnStart: boolean, additionalArgs?: any): Promise<void> {
-        if (this._sourceFile) throw new Error("Sources already loaded. This should only be called once after instanciation.");
-
-        this._sourceFile = sourceFile;
-
-        const parseResponse: LRP.ParseResponse = await this.lrProxy.parse({ sourceFile: sourceFile });
-        await this.lrProxy.initializeExecution({ sourceFile: sourceFile, bindings: { ...additionalArgs } });
+    public async initializeExecution(pauseOnStart: boolean, breakpointManagerInitializationParams: BreakpointManagerInitializationParams, additionalArgs?: any): Promise<void> {
+        const parseResponse: LRP.ParseResponse = await this.lrProxy.parse({ sourceFile: this._sourceFile });
+        await this.lrProxy.initializeExecution({ sourceFile: this._sourceFile, bindings: { ...additionalArgs } });
 
         const getBreakpointTypes: LRP.GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
-        this._breakpointManager = new CDAPBreakpointManager(sourceFile, this.lrProxy, parseResponse.astRoot, getBreakpointTypes.breakpointTypes);
+        this._breakpointManager = new CDAPBreakpointManager(this._sourceFile, this.lrProxy, parseResponse.astRoot, getBreakpointTypes.breakpointTypes);
+        this.breakpointManager.setFormat(breakpointManagerInitializationParams.linesStartAt1, breakpointManagerInitializationParams.columnsStartAt1);
+        if (breakpointManagerInitializationParams.enabledBreakpointTypeIds !== undefined) this.breakpointManager.registerDefaultBreakpointTypes(breakpointManagerInitializationParams.enabledBreakpointTypeIds)
         if (this.initialBreakpointsRequest !== null) this.initialBreakpointsRequest.resolve(this._breakpointManager);
+
         this.variableHandler = new VariableHandler(parseResponse.astRoot);
 
-        const getAvailableStepsResponse: LRP.GetAvailableStepsResponse = await this.lrProxy.getAvailableSteps({ sourceFile: sourceFile });
+        const getAvailableStepsResponse: LRP.GetAvailableStepsResponse = await this.lrProxy.getAvailableSteps({ sourceFile: this._sourceFile });
 
         this._stepManager = new StepManager(getAvailableStepsResponse.availableSteps);
         this._isExecutionDone = this._stepManager.availableSteps.length == 0;
@@ -665,6 +665,12 @@ class InitialBreakpointsRequest {
     public resolve(breakpointManager: CDAPBreakpointManager): void {
         this.resolveFunc(breakpointManager.setBreakpoints(this.sourceBreakpoints));
     }
+}
+
+export type BreakpointManagerInitializationParams = {
+    linesStartAt1: boolean;
+    columnsStartAt1: boolean;
+    enabledBreakpointTypeIds?: string[]
 }
 
 class NonDeterminismError implements Error {

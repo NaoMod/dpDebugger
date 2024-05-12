@@ -104,7 +104,7 @@ export class CustomRequestHandler {
         if (!this.isEnableStepArguments(args)) return this.createMalformedArgumentsError('enableStep', args);
 
         this.runtime.enableStep(args.stepId);
-        return { status: "success", event: new InvalidatedEvent(['stacks']) };
+        return { status: "success", response: response, event: new InvalidatedEvent(['stacks']) };
     }
 
     /**
