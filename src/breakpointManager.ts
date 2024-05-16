@@ -162,16 +162,22 @@ export class CDAPBreakpointManager {
             }
 
             const element: LRP.ModelElement | undefined = this.astElementRegistry.getElementFromPosition(sourceBreakpoint.line + this.lineOffset, sourceBreakpoint.column + this.columnOffset);
-            if (element === undefined || element.location === undefined || this.elementsWithBreakpoints.has(element) || !this.hasPossibleBreakpointType(element)) {
+            if (element === undefined || element.location === undefined || this.elementsWithBreakpoints.has(element)) {
                 setBreakpoints.push(new Breakpoint(false));
                 continue;
             }
 
-            const defaultEnabledBreakpointTypes: LRP.BreakpointType[] = this.findDefaultEnabledBreakpointTypes(element);
+            const possibleBreakpointTypes: LRP.BreakpointType[] = this.possibleBreakpointTypes(element);
+            if (possibleBreakpointTypes.length === 0) {
+                setBreakpoints.push(new Breakpoint(false));
+                continue;
+            }
+
+            const enabledBreakpointTypes: LRP.BreakpointType[] = possibleBreakpointTypes.length === 1 ? [possibleBreakpointTypes[0]] : this.findDefaultEnabledBreakpointTypes(possibleBreakpointTypes);
             const domainSpecificBreakpoint: DomainSpecificBreakpoint = {
                 id: currentId,
                 sourceBreakpoint: sourceBreakpoint,
-                enabledBreakpointTypes: defaultEnabledBreakpointTypes,
+                enabledBreakpointTypes: enabledBreakpointTypes,
                 targetElement: element
             }
             newDomainSpecificBreakpoints.set(domainSpecificBreakpoint.id, domainSpecificBreakpoint);
@@ -278,12 +284,11 @@ export class CDAPBreakpointManager {
         return Array.from(previousDomainSpecificBreakpoints.values()).find(b => b.sourceBreakpoint.line === sourceBreakpoint.line && b.sourceBreakpoint.column === sourceBreakpoint.column);
     }
 
-    private hasPossibleBreakpointType(element: LRP.ModelElement): boolean {
-        for (const type of element.types) {
-            if (this._availableParameterizedBreakpointTypes.has(type)) return true;
-        }
-
-        return false;
+    private possibleBreakpointTypes(element: LRP.ModelElement): LRP.BreakpointType[] {
+        return element.types.reduce((aggr, type) => {
+            const breakpointTypes: Set<LRP.BreakpointType> | undefined = this._availableParameterizedBreakpointTypes.get(type);
+            return breakpointTypes !== undefined ? [...aggr, ...breakpointTypes] : aggr;
+        }, []);
     }
 
     private findParameterizedBreakpointType(breakpointTypeId: string): LRP.BreakpointType | undefined {
@@ -295,19 +300,8 @@ export class CDAPBreakpointManager {
         return undefined;
     }
 
-    private findDefaultEnabledBreakpointTypes(element: LRP.ModelElement): LRP.BreakpointType[] {
-        const res: LRP.BreakpointType[] = [];
-
-        for (const type of element.types) {
-            const breakpointTypes: Set<LRP.BreakpointType> | undefined = this._availableParameterizedBreakpointTypes.get(type);
-            if (breakpointTypes === undefined) continue;
-
-            for (const breakpointType of breakpointTypes) {
-                if (this.defaultParameterizedBreakpointTypes.has(breakpointType)) res.push(breakpointType);
-            }
-        }
-
-        return res;
+    private findDefaultEnabledBreakpointTypes(possibleBreakpointTypes: LRP.BreakpointType[]): LRP.BreakpointType[] {
+        return possibleBreakpointTypes.reduce((aggr, bt) => this.defaultParameterizedBreakpointTypes.has(bt) ? [...aggr, bt] : aggr, []);
     }
 }
 
