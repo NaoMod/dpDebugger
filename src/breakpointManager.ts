@@ -187,13 +187,13 @@ export class CDAPBreakpointManager {
     }
 
     // TODO: what happens when not all existing domain-specific breakpoints are passed?
-    public setDomainSpecificBreakpoints(breakpoints: DAPExtension.DomainSpecificBreakpoint[]): void {
+    public setDomainSpecificBreakpoints(breakpoints: DAPExtension.DomainSpecificBreakpointsCreationInfo[]): void {
         for (const breakpoint of breakpoints) {
             const domainSpecificBreakpoint: DomainSpecificBreakpoint | undefined = this._domainSpecificBreakpoints.get(breakpoint.sourceBreakpointId);
             if (domainSpecificBreakpoint === undefined) continue;
 
             domainSpecificBreakpoint.enabledBreakpointTypes = [];
-            for (const breakpointTypeId of breakpoint.enabledBreakpointTypeIds) {
+            for (const breakpointTypeId of breakpoint.enabledBreakpointTypesIds) {
                 const breakpointType: LRP.BreakpointType | undefined = this.findParameterizedBreakpointType(breakpointTypeId);
                 if (breakpointType === undefined) continue;
 
@@ -266,10 +266,10 @@ export class CDAPBreakpointManager {
         return Array.from(this._enabledStandaloneBreakpoints);
     }
 
-    public get domainSpecificBreakpoints(): DAPExtension.DomainSpecificBreakpoint[] {
+    public get domainSpecificBreakpoints(): DAPExtension.DomainSpecificBreakpointsFromSourceBreakpoint[] {
         return Array.from(this._domainSpecificBreakpoints.values()).map(b => ({
             sourceBreakpointId: b.id,
-            enabledBreakpointTypeIds: b.enabledBreakpointTypes.map(bt => bt.id),
+            enabledBreakpointTypesIds: b.enabledBreakpointTypes.map(bt => bt.id),
             targetElementTypes: b.targetElement.types
         }));
     }

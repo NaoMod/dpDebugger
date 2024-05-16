@@ -67,7 +67,7 @@ export type GetEnabledStandaloneBreakpointTypesResponse = {
 */
 export type EnableStandaloneBreakpointTypesArguments = Arguments & {
     /** IDs of the standalone breakpoint types to enable. */
-    breakpointTypeIds: string[];
+    breakpointTypesIds: string[];
 }
 
 /**
@@ -80,7 +80,7 @@ export type GetDomainSpecificBreakpointsArguments = Arguments;
  */
 export type GetDomainSpecificBreakpointsResponse = {
     /** Domain-specific breakpoints currently enabled. */
-    breakpoints: DomainSpecificBreakpoint[];
+    breakpoints: DomainSpecificBreakpointsFromSourceBreakpoint[];
 }
 
 /**
@@ -88,20 +88,23 @@ export type GetDomainSpecificBreakpointsResponse = {
 */
 export type SetDomainSpecificBreakpointsArguments = Arguments & {
     /** Domain-specific breakpoints to create. */
-    breakpoints: DomainSpecificBreakpoint[];
+    breakpoints: DomainSpecificBreakpointsCreationInfo[];
 }
 
-/** Domain-specific breakpoint. */
-export type DomainSpecificBreakpoint = {
+/** Domain-specific breakpoints associated to a source breakpoint. */
+export type DomainSpecificBreakpointsFromSourceBreakpoint = {
     /** ID of the source breakpoint from which to create a domain-specific breakpoint. */
     sourceBreakpointId: number;
 
     /** IDs of the parameterized breakpoint types to enable for this domain-specific breakpoint. */
-    enabledBreakpointTypeIds: string[];
+    enabledBreakpointTypesIds: string[];
 
     /** Types of the element targeted by the source breakpoint. */
     targetElementTypes: string[];
 }
+
+/** Information necessary to create domain-specific breakpoints from a source breakpoint. */
+export type DomainSpecificBreakpointsCreationInfo = Omit<DomainSpecificBreakpointsFromSourceBreakpoint, 'targetElementTypes'>;
 
 /**
  * Arguments for the 'getAvailableSteps' cDAP request.

@@ -67,7 +67,7 @@ export class CustomRequestHandler {
     private enableStandaloneBreakpointTypes(response: DebugProtocol.Response, args: any): CustomRequestResult {
         if (!this.isEnableStandaloneBreakpointTypesArguments(args)) return this.createMalformedArgumentsError('enableStandaloneBreakpointTypes', args);
 
-        this.runtime.breakpointManager.enableStandaloneBreakpointTypes(args.breakpointTypeIds);
+        this.runtime.breakpointManager.enableStandaloneBreakpointTypes(args.breakpointTypesIds);
 
         return { status: 'success', response: response };
     }
@@ -134,7 +134,7 @@ export class CustomRequestHandler {
      * @returns True if the object is an instance of {@link DAPExtension.EnableStandaloneBreakpointTypesArguments}, false otherwise.
      */
     private isEnableStandaloneBreakpointTypesArguments(args: any): args is DAPExtension.EnableStandaloneBreakpointTypesArguments {
-        const properties: string[] = ['sourceFile', 'breakpointTypeIds'];
+        const properties: string[] = ['sourceFile', 'breakpointTypesIds'];
         return Object.entries(args).length == 2 && this.hasProperties(args, properties);
     }
 
