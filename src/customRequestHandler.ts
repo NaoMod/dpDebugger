@@ -18,6 +18,9 @@ export class CustomRequestHandler {
             case 'enableStandaloneBreakpointTypes':
                 return this.enableStandaloneBreakpointTypes(response, args);
 
+            case 'getSourceBreakpointsTargetTypes':
+                return this.getSourceBreakpointsTargetTypes(response, args);
+
             case 'getDomainSpecificBreakpoints':
                 return this.getDomainSpecificBreakpoints(response, args);
 
@@ -70,6 +73,15 @@ export class CustomRequestHandler {
         this.runtime.breakpointManager.enableStandaloneBreakpointTypes(args.breakpointTypesIds);
 
         return { status: 'success', response: response };
+    }
+
+    private getSourceBreakpointsTargetTypes(response: DebugProtocol.Response, args: any): CustomRequestResult {
+        if (!this.isGetSourceBreakpointsTargetTypesArguments(args)) return this.createMalformedArgumentsError('getSourceBreakpointsTargetTypes', args);
+
+        const res: DAPExtension.GetSourceBreakpointsTargetTypesResponse = { sourceBreakpointTargetTypes: args.sourceBreakpointsIds.map(id => ({ sourceBreakpointId: id, types: this.runtime.breakpointManager.getTargetTypes(id) })) };
+
+        response.body = res;
+        return { status: "success", response: response };
     }
 
     private getDomainSpecificBreakpoints(response: DebugProtocol.Response, args: any): CustomRequestResult {
@@ -135,6 +147,17 @@ export class CustomRequestHandler {
      */
     private isEnableStandaloneBreakpointTypesArguments(args: any): args is DAPExtension.EnableStandaloneBreakpointTypesArguments {
         const properties: string[] = ['sourceFile', 'breakpointTypesIds'];
+        return Object.entries(args).length == 2 && this.hasProperties(args, properties);
+    }
+
+    /**
+     * Checks whether an object is an instance of {@link DAPExtension.GetSourceBreakpointsTargetTypesArguments}.
+     * 
+     * @param args Object to check.
+     * @returns True if the object is an instance of {@link DAPExtension.GetSourceBreakpointsTargetTypesArguments}, false otherwise.
+     */
+    private isGetSourceBreakpointsTargetTypesArguments(args: any): args is DAPExtension.GetSourceBreakpointsTargetTypesArguments {
+        const properties: string[] = ['sourceFile', 'sourceBreakpointsIds'];
         return Object.entries(args).length == 2 && this.hasProperties(args, properties);
     }
 

@@ -245,6 +245,13 @@ export class CDAPBreakpointManager {
         }
     }
 
+    public getTargetTypes(sourceBreakpointId: number): string[] {
+        const domainSpecificBreakpoint: DomainSpecificBreakpoint | undefined = this._domainSpecificBreakpoints.get(sourceBreakpointId);
+        if (domainSpecificBreakpoint === undefined) throw new Error(`Undefined domain-specific breakpoints for source breakpoint ${sourceBreakpointId}.`);
+
+        return domainSpecificBreakpoint.targetElement.types;
+    }
+
     /** cDAP-compatible representation of available breakpoint types. */
     public get availableBreakpointTypes(): DAPExtension.BreakpointType[] {
         const availableBreakpointTypes: LRP.BreakpointType[] = Array.from(this._availableStandaloneBreakpointTypes.values());
@@ -275,8 +282,7 @@ export class CDAPBreakpointManager {
     public get domainSpecificBreakpoints(): DAPExtension.DomainSpecificBreakpointsFromSourceBreakpoint[] {
         return Array.from(this._domainSpecificBreakpoints.values()).map(b => ({
             sourceBreakpointId: b.id,
-            enabledBreakpointTypesIds: b.enabledBreakpointTypes.map(bt => bt.id),
-            targetElementTypes: b.targetElement.types
+            enabledBreakpointTypesIds: b.enabledBreakpointTypes.map(bt => bt.id)
         }));
     }
 
