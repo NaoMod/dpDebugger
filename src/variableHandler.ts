@@ -1,5 +1,6 @@
 import { Variable } from "@vscode/debugadapter";
 import * as LRP from "./lrp";
+import { ProcessedModel } from "./modelElementProcess";
 
 export const AST_ROOT_VARIABLES_REFERENCE: number = 1;
 export const RUNTIME_STATE_ROOT_VARIABLES_REFERENCE: number = 2;
@@ -10,23 +11,9 @@ export const RUNTIME_STATE_ROOT_VARIABLES_REFERENCE: number = 2;
  * {@link https://microsoft.github.io/debug-adapter-protocol/specification#Types_Variable}.
  */
 export class VariableHandler {
-    /** Root of the AST. */
-    private astRoot: LRP.ModelElement;
+    private processedAst: ProcessedModel;
 
-    /** Root of the runtime state. */
-    private runtimeStateRoot?: LRP.ModelElement;
-
-    /** Map from IDs to their associated AST element. */
-    private idToAstElement: Map<string, LRP.ModelElement>;
-
-    /** Multivalued references contained by some elements of the AST. */
-    private astMultivaluedRefs: Set<any[]>;
-
-    /** Map from IDs to  their associated runtime state element. */
-    private idToRuntimeStateElement: Map<string, LRP.ModelElement>;
-
-    /** Multivalued references contained by some elements of the runtime state. */
-    private runtimeStateMultivaluedRefs: Set<any[]>;
+    private processedRuntimeState?: ProcessedModel;
 
     /** Registry of current variables references. */
     private variableReferenceRegistry: VariableReferenceRegistry;
@@ -34,19 +21,12 @@ export class VariableHandler {
     /** Current reference to assign. */
     private currentReference: number;
 
-    constructor(astRoot: LRP.ModelElement) {
-        this.astRoot = astRoot;
-        this.runtimeStateRoot = undefined;
-
-        const processedAst: ProcessedModelRoot = this.process(astRoot);
-        this.idToAstElement = processedAst.idToElement;
-        this.astMultivaluedRefs = processedAst.multivaluedRefs;
-
-        this.idToRuntimeStateElement = new Map();
-        this.runtimeStateMultivaluedRefs = new Set();
+    constructor(processedAst: ProcessedModel) {
+        this.processedAst = processedAst;
+        this.processedRuntimeState = undefined;
 
         this.variableReferenceRegistry = new VariableReferenceRegistry();
-        this.variableReferenceRegistry.set(astRoot, AST_ROOT_VARIABLES_REFERENCE);
+        this.variableReferenceRegistry.set(processedAst.root, AST_ROOT_VARIABLES_REFERENCE);
 
         this.currentReference = 2;
     }
@@ -77,11 +57,9 @@ export class VariableHandler {
      * Invalidates the current runtime state.
      */
     public invalidateRuntime(): void {
-        this.runtimeStateRoot = undefined;
-        this.idToRuntimeStateElement.clear();
-        this.runtimeStateMultivaluedRefs.clear();
+        this.processedRuntimeState = undefined;
         this.variableReferenceRegistry.clear();
-        this.variableReferenceRegistry.set(this.astRoot, AST_ROOT_VARIABLES_REFERENCE);
+        this.variableReferenceRegistry.set(this.processedAst.root, AST_ROOT_VARIABLES_REFERENCE);
         this.currentReference = 2;
     }
 
@@ -90,16 +68,11 @@ export class VariableHandler {
      * 
      * @param runtimeStateRoot New runtime state.
      */
-    public updateRuntime(runtimeStateRoot: LRP.ModelElement): void {
-        this.runtimeStateRoot = runtimeStateRoot;
-
-        const processedRuntimeState: ProcessedModelRoot = this.process(runtimeStateRoot);
-        this.idToRuntimeStateElement = processedRuntimeState.idToElement;
-        this.runtimeStateMultivaluedRefs = processedRuntimeState.multivaluedRefs;
-
+    public updateRuntime(processedRuntimeState: ProcessedModel): void {
+        this.processedRuntimeState = processedRuntimeState;
         this.variableReferenceRegistry.clear();
-        this.variableReferenceRegistry.set(this.astRoot, AST_ROOT_VARIABLES_REFERENCE);
-        this.variableReferenceRegistry.set(this.runtimeStateRoot, RUNTIME_STATE_ROOT_VARIABLES_REFERENCE);
+        this.variableReferenceRegistry.set(this.processedAst.root, AST_ROOT_VARIABLES_REFERENCE);
+        this.variableReferenceRegistry.set(this.processedRuntimeState.root, RUNTIME_STATE_ROOT_VARIABLES_REFERENCE);
 
         this.currentReference = 3;
     }
@@ -137,7 +110,7 @@ export class VariableHandler {
     private getVariablesForArray(array: any[]): Variable[] {
         const variables: Variable[] = [];
 
-        if (this.astMultivaluedRefs.has(array) || this.runtimeStateMultivaluedRefs.has(array)) {
+        if (this.processedAst.multivaluedRefs.has(array) || this.processedRuntimeState?.multivaluedRefs.has(array)) {
             for (let i = 0; i < array.length; i++) {
                 variables.push(this.createVariableFromRef(i.toString(), array[i]));
             }
@@ -148,75 +121,6 @@ export class VariableHandler {
         }
 
         return variables;
-    }
-
-
-    /**
-     * Processes a model element and its descendants to retrieve a {@link ProcessedModelRoot}.
-     * 
-     * @param modelRoot Root element to process.
-     * @returns The processed model.
-     */
-    private process(modelRoot: LRP.ModelElement): ProcessedModelRoot {
-        return {
-            idToElement: this.buildRegistry(modelRoot),
-            multivaluedRefs: this.findMultivaluedRefs(modelRoot)
-        };
-    }
-
-    /**
-     * Adds a model element and its desceendants to the registry of all model elements.
-     * 
-     * @param element Element from which to add model elements. All model elements recursively contained by the 
-     * root will be added to the registry.
-     * @returns The registry built from the model root.
-     */
-    private buildRegistry(element: LRP.ModelElement): Map<string, LRP.ModelElement> {
-        let res: Map<string, LRP.ModelElement> = new Map();
-        if (element === null) return res;
-
-        res.set(element.id, element);
-
-        for (const child of Object.values(element.children)) {
-            if (Array.isArray(child)) {
-                for (const grandchild of child) {
-                    res = new Map([...res, ...this.buildRegistry(grandchild)]);
-                }
-            } else {
-                res = new Map([...res, ...this.buildRegistry(child)]);
-            }
-        }
-
-        return res;
-    }
-
-    /**
-     * Finds the multivalued refs contained by a model element and its descendants.
-     * 
-     * @param element Element from which to search for multivalued references.
-     * @returns The set of multivalued references.
-     */
-    private findMultivaluedRefs(element: LRP.ModelElement): Set<any[]> {
-        let res: Set<any[]> = new Set();
-        if (element == null) return res;
-
-        for (const ref of Object.values(element.refs)) {
-            if (Array.isArray(ref)) {
-                res.add(ref);
-            }
-        }
-
-        for (const child of Object.values(element.children)) {
-            if (Array.isArray(child)) {
-                for (const grandchild of child) {
-                    res = new Set([...res, ...this.findMultivaluedRefs(grandchild)]);
-                }
-            } else {
-                res = new Set([...res, ...this.findMultivaluedRefs(child)]);
-            }
-        }
-
-        return res;
     }
 
     /**
@@ -254,8 +158,8 @@ export class VariableHandler {
             return new Variable(name, 'Array[' + ref.length + ']', reference, ref.length);
         }
 
-        let referencedObject: LRP.ModelElement | undefined = this.idToAstElement.get(ref);
-        if (referencedObject === undefined) referencedObject = this.idToRuntimeStateElement.get(ref);
+        let referencedObject: LRP.ModelElement | undefined = this.processedAst.idToElement.get(ref);
+        if (referencedObject === undefined) referencedObject = this.processedRuntimeState?.idToElement.get(ref);
         if (referencedObject === undefined) throw new Error('Reference ' + ref + ' is invalid.');
 
         return new Variable(name, `[${referencedObject.types.join(', ')}]`, this.getReference(referencedObject));
@@ -356,9 +260,3 @@ class VariableReferenceRegistry {
         this.referenceToObject.clear();
     }
 }
-
-/** Stores information retrieved after the processing of a root model element. */
-type ProcessedModelRoot = {
-    idToElement: Map<string, LRP.ModelElement>;
-    multivaluedRefs: Set<any[]>;
-};

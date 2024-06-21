@@ -45,69 +45,47 @@ export type GetBreakpointTypesResponse = {
  * Breakpoint type defined by the language runtime.
  */
 export type BreakpointType = Leaf & {
-    /** Type of the element targeted by this breakpoint type. */
-    targetElementType?: string;
+    /** Parameters needed to evaluate a breakpoint of this type. */
+    parameters: BreakpointParameter[];
 }
 
 /**
- * Arguments for the 'getEnabledStandaloneBreakpointTypes' cDAP request.
-*/
-export type GetEnabledStandaloneBreakpointTypesArguments = Arguments;
+ * Parameter required by a breakpoint type.
+ */
+export type BreakpointParameter = PrimitiveBreakpointParameter | ReferenceBreakpointParameter;
 
 /**
- * Response to the 'getEnabledStandaloneBreakpointTypes' cDAP request.
+ * Primitive breakpoint parameter.
  */
-export type GetEnabledStandaloneBreakpointTypesResponse = {
-    /** IDs of the currently enabled standalone breakpoint types. */
-    enabledStandaloneBreakpointTypesIds: string[];
+export type PrimitiveBreakpointParameter = {
+    /** Type of the parameter. */
+    type: 'primitive';
+
+    /** Name of the parameter. */
+    name: string;
+
+    /** True is the parameter is a collection, false otherwise. */
+    isMultivalued: boolean;
+
+    /** Primitive type of the primitive parameter. */
+    primitiveType: 'boolean' | 'number' | 'string';
 }
 
 /**
- * Arguments for the 'enableStandaloneBreakpointTypes' cDAP request.
-*/
-export type EnableStandaloneBreakpointTypesArguments = Arguments & {
-    /** IDs of the standalone breakpoint types to enable. */
-    breakpointTypesIds: string[];
-}
-
-/**
- * Arguments for the 'getSourceBreakpointsTargetTypes' cDAP request.
-*/
-export type GetSourceBreakpointsTargetTypesArguments = Arguments & {
-    /** IDs of the source breakpoints for which to retrieve target types. */
-    sourceBreakpointsIds: number[];
-};
-
-/**
- * Response to the 'getSourceBreakpointsTargetTypes' cDAP request.
-*/
-export type GetSourceBreakpointsTargetTypesResponse = {
-    /** Types of the elements targeted by different source breakpoints. */
-    sourceBreakpointTargetTypes: SourceBreakpointTargetTypes[];
-};
-
-/**
- * Types of the element targeted by a source breakpoint.
+ * Reference breakpoint parameter.
  */
-export type SourceBreakpointTargetTypes = {
-    /** ID of the source breakpoint. */
-    sourceBreakpointId: number;
+export type ReferenceBreakpointParameter = {
+    /** Type of the parameter. */
+    type: 'reference';
 
-    /** Types of the element targeted by the source breakpoint. */
-    types: string[];
-}
+    /** Name of the parameter. */
+    name: string;
 
-/**
- * Arguments for the 'getDomainSpecificBreakpoints' cDAP request.
- */
-export type GetDomainSpecificBreakpointsArguments = Arguments;
+    /** True is the parameter is a collection, false otherwise. */
+    isMultivalued: boolean;
 
-/**
- * Response to the 'getDomainSpecificBreakpoints' cDAP request.
- */
-export type GetDomainSpecificBreakpointsResponse = {
-    /** Domain-specific breakpoints currently enabled. */
-    breakpoints: DomainSpecificBreakpointsFromSourceBreakpoint[];
+    /** Type of the target model element, as defined in {@link ModelElement.types}. */
+    elementType: string;
 }
 
 /**
@@ -115,20 +93,39 @@ export type GetDomainSpecificBreakpointsResponse = {
 */
 export type SetDomainSpecificBreakpointsArguments = Arguments & {
     /** Domain-specific breakpoints to create. */
-    breakpoints: DomainSpecificBreakpointsCreationInfo[];
+    breakpoints: DomainSpecificBreakpoint[];
 }
 
-/** Domain-specific breakpoints associated to a source breakpoint. */
-export type DomainSpecificBreakpointsFromSourceBreakpoint = {
-    /** ID of the source breakpoint from which the domain-specific breakpoints are created. */
-    sourceBreakpointId: number;
-
-    /** IDs of the parameterized breakpoint types to enable for this domain-specific breakpoint. */
-    enabledBreakpointTypesIds: string[];
+/**
+ * Response to the 'setDomainSpecificBreakpoints' cDAP request.
+*/
+export type SetDomainSpecificBreakpointsResponse = {
+    /** Domain-specific breakpoints to create. */
+    breakpoints: DomainSpecificBreakpointCreationInformation[];
 }
 
-/** Information necessary to create domain-specific breakpoints from a source breakpoint. */
-export type DomainSpecificBreakpointsCreationInfo = Omit<DomainSpecificBreakpointsFromSourceBreakpoint, 'targetElementTypes'>;
+/** Domain-specific breakpoint. */
+export type DomainSpecificBreakpoint = {
+    /** Parameters required by the breakpoint type. */
+    params: Entries;
+
+    /** Breakpoint type to create an instance of. */
+    breakpointTypeId: string;
+}
+
+/** Domain-specific breakpoint creation information. */
+export type DomainSpecificBreakpointCreationInformation = {
+    /** True if the breakpoint could be set, false otherwise. */
+    verified: boolean;
+}
+
+/**
+ * Arbitrary entries for model elements or literal values. 
+ */
+export type Entries = {
+    /** Properties with arbitrary key and value. */
+    [key: string]: unknown;
+}
 
 /**
  * Arguments for the 'getAvailableSteps' cDAP request.
@@ -155,3 +152,26 @@ export type EnableStepArguments = Arguments & {
  * Execution step listed by the language runtime.
 */
 export type Step = EnablableLeaf;
+
+export type GetModelElementsReferencesArguments = Arguments & {
+    type: string;
+}
+
+export type GetModelElementsReferencesResponse = {
+    elements: ModelElementReference[];
+}
+
+export type ModelElementReference = {
+    id: string;
+    types: string[];
+    label: string;
+}
+
+export type GetModelElementReferenceFromSourceArguments = Arguments & {
+    line: number;
+    column: number;
+}
+
+export type GetModelElementReferenceFromSourceResponse = {
+    element?: ModelElementReference;
+}

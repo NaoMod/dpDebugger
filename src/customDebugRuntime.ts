@@ -1,10 +1,13 @@
 import { Variable } from "@vscode/debugadapter";
 import { DebugProtocol } from "@vscode/debugprotocol";
 import * as DAPExtension from "./DAPExtension";
+import { ASTElementLocator } from "./astElementLocator";
 import { ActivatedBreakpoint, CDAPBreakpointManager } from "./breakpointManager";
 import { CustomDebugSession } from "./customDebugSession";
 import { LanguageRuntimeProxy } from "./lrProxy";
 import * as LRP from "./lrp";
+import { ProcessedModel, processModel } from "./modelElementProcess";
+import { ModelElementTypeRegistry } from "./modelElementRegistry";
 import { StepManager } from "./stepManager";
 import { VariableHandler } from "./variableHandler";
 
@@ -33,6 +36,10 @@ export class CustomDebugRuntime {
     /** Facility responsible for step management for this debug runtime. */
     private _stepManager: StepManager;
 
+    private astElementLocator: ASTElementLocator;
+
+    private modelElementTypeRegistry: ModelElementTypeRegistry;
+
     /** Facility responsible for variable management for this debug runtime. */
     private variableHandler: VariableHandler;
 
@@ -57,8 +64,11 @@ export class CustomDebugRuntime {
     /** True if the execution is currently paused at the start. */
     private pausedOnStart: boolean;
 
-    constructor(debugSession: CustomDebugSession, sourceFile: string, languageRuntimePort: number, pauseOnEnd: boolean, skipRedundantPauses: boolean) {
+    constructor(debugSession: CustomDebugSession, sourceFile: string, languageRuntimePort: number, pauseOnEnd: boolean, skipRedundantPauses: boolean, initArgs: InitializationParams) {
         this._sourceFile = sourceFile;
+        //TODO: change initArguments name
+        this.astElementLocator = new ASTElementLocator(initArgs.linesStartAt1, initArgs.columnsStartAt1);
+        this.modelElementTypeRegistry = new ModelElementTypeRegistry();
         this.pauseOnEnd = pauseOnEnd;
         this.skipRedundantPauses = skipRedundantPauses;
         this.debugSession = debugSession;
@@ -72,21 +82,22 @@ export class CustomDebugRuntime {
     /**
      * Initializes the execution for a given source file.
      * 
-     * @param sourceFile Source file for which to initialize an execution.
      * @param pauseOnStart True if a pause must be triggered after the initialization, false otherwise.
      * @param additionalArgs Additional arguments necessary to initialize the execution.
      */
-    public async initializeExecution(pauseOnStart: boolean, breakpointManagerInitializationParams: BreakpointManagerInitializationParams, additionalArgs?: any): Promise<void> {
+    public async initializeExecution(pauseOnStart: boolean, additionalArgs?: any): Promise<void> {
         const parseResponse: LRP.ParseResponse = await this.lrProxy.parse({ sourceFile: this._sourceFile });
         await this.lrProxy.initializeExecution({ sourceFile: this._sourceFile, bindings: { ...additionalArgs } });
+        const processedAst: ProcessedModel = processModel(parseResponse.astRoot);
 
         const getBreakpointTypes: LRP.GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
-        this._breakpointManager = new CDAPBreakpointManager(this._sourceFile, this.lrProxy, parseResponse.astRoot, getBreakpointTypes.breakpointTypes);
-        this.breakpointManager.setFormat(breakpointManagerInitializationParams.linesStartAt1, breakpointManagerInitializationParams.columnsStartAt1);
-        if (breakpointManagerInitializationParams.enabledBreakpointTypeIds !== undefined) this.breakpointManager.registerDefaultBreakpointTypes(breakpointManagerInitializationParams.enabledBreakpointTypeIds)
-        if (this.initialBreakpointsRequest !== null) this.initialBreakpointsRequest.resolve(this._breakpointManager);
+        
+        this.astElementLocator.registerAst(processedAst.root);
+        this.modelElementTypeRegistry.registerAstElements(processedAst.typeToElements);
+        this.variableHandler = new VariableHandler(processedAst);
 
-        this.variableHandler = new VariableHandler(parseResponse.astRoot);
+        this._breakpointManager = new CDAPBreakpointManager(this._sourceFile, this.astElementLocator, getBreakpointTypes.breakpointTypes, this.lrProxy);
+        if (this.initialBreakpointsRequest !== null) this.initialBreakpointsRequest.resolve(this._breakpointManager);
 
         const getAvailableStepsResponse: LRP.GetAvailableStepsResponse = await this.lrProxy.getAvailableSteps({ sourceFile: this._sourceFile });
 
@@ -340,7 +351,9 @@ export class CustomDebugRuntime {
      */
     public async updateRuntimeState(): Promise<void> {
         const getRuntimeStateResponse: LRP.GetRuntimeStateResponse = await this.lrProxy.getRuntimeState({ sourceFile: this._sourceFile });
-        this.variableHandler.updateRuntime(getRuntimeStateResponse.runtimeStateRoot);
+        const processedRuntimeState: ProcessedModel = processModel(getRuntimeStateResponse.runtimeStateRoot);
+        this.modelElementTypeRegistry.registerRuntimeStateElements(processedRuntimeState.typeToElements);
+        this.variableHandler.updateRuntime(processedRuntimeState);
     }
 
     /**
@@ -422,6 +435,14 @@ export class CustomDebugRuntime {
                 this.initialBreakpointsRequest = new InitialBreakpointsRequest(breakpoints, resolve);
             }
         });
+    }
+
+    public getModelElementsFromType(type: string): LRP.ModelElement[] {
+        return this.modelElementTypeRegistry.getModelElementsFromType(type);
+    }
+
+    public getModelElementFromSource(line: number, column: number): LRP.ModelElement | undefined {
+        return this.astElementLocator.getElementFromPosition(line, column);
     }
 
     public get sourceFile(): string {
@@ -667,10 +688,9 @@ class InitialBreakpointsRequest {
     }
 }
 
-export type BreakpointManagerInitializationParams = {
+export type InitializationParams = {
     linesStartAt1: boolean;
     columnsStartAt1: boolean;
-    enabledBreakpointTypeIds?: string[]
 }
 
 class NonDeterminismError implements Error {

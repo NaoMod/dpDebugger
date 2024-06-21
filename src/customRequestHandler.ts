@@ -2,6 +2,8 @@ import { InvalidatedEvent } from "@vscode/debugadapter";
 import { DebugProtocol } from "@vscode/debugprotocol";
 import * as DAPExtension from "./DAPExtension";
 import { CustomDebugRuntime } from "./customDebugRuntime";
+import * as LRP from "./lrp";
+
 
 export class CustomRequestHandler {
 
@@ -12,18 +14,6 @@ export class CustomRequestHandler {
             case 'getBreakpointTypes':
                 return this.getBreakpointTypes(response, args);
 
-            case 'getEnabledStandaloneBreakpointTypes':
-                return this.getEnabledStandaloneBreakpointTypes(response, args);
-
-            case 'enableStandaloneBreakpointTypes':
-                return this.enableStandaloneBreakpointTypes(response, args);
-
-            case 'getSourceBreakpointsTargetTypes':
-                return this.getSourceBreakpointsTargetTypes(response, args);
-
-            case 'getDomainSpecificBreakpoints':
-                return this.getDomainSpecificBreakpoints(response, args);
-
             case 'setDomainSpecificBreakpoints':
                 return this.setDomainSpecificBreakpoints(response, args);
 
@@ -32,6 +22,12 @@ export class CustomRequestHandler {
 
             case 'enableStep':
                 return this.enableStep(response, args);
+
+            case 'getModelElementsReferences':
+                return this.getModelElementsReferences(response, args);
+
+            case 'getModelElementReferenceFromSource':
+                return this.getModelElementReferenceFromSource(response, args);
 
             default:
                 return {
@@ -56,48 +52,16 @@ export class CustomRequestHandler {
         return { status: "success", response: response };
     }
 
-    private getEnabledStandaloneBreakpointTypes(response: DebugProtocol.Response, args: any): CustomRequestResult {
-        if (!this.isGetEnabledStandaloneBreakpointTypesArguments(args)) return this.createMalformedArgumentsError('getEnabledStandaloneBreakpointTypes', args);
-
-        const res: DAPExtension.GetEnabledStandaloneBreakpointTypesResponse = {
-            enabledStandaloneBreakpointTypesIds: this.runtime.breakpointManager.enabledStandaloneBreakpointTypes.map(bt => bt.id)
-        }
-
-        response.body = res;
-        return { status: "success", response: response };
-    };
-
-    private enableStandaloneBreakpointTypes(response: DebugProtocol.Response, args: any): CustomRequestResult {
-        if (!this.isEnableStandaloneBreakpointTypesArguments(args)) return this.createMalformedArgumentsError('enableStandaloneBreakpointTypes', args);
-
-        this.runtime.breakpointManager.enableStandaloneBreakpointTypes(args.breakpointTypesIds);
-
-        return { status: 'success', response: response };
-    }
-
-    private getSourceBreakpointsTargetTypes(response: DebugProtocol.Response, args: any): CustomRequestResult {
-        if (!this.isGetSourceBreakpointsTargetTypesArguments(args)) return this.createMalformedArgumentsError('getSourceBreakpointsTargetTypes', args);
-
-        const res: DAPExtension.GetSourceBreakpointsTargetTypesResponse = { sourceBreakpointTargetTypes: args.sourceBreakpointsIds.map(id => ({ sourceBreakpointId: id, types: this.runtime.breakpointManager.getTargetTypes(id) })) };
-
-        response.body = res;
-        return { status: "success", response: response };
-    }
-
-    private getDomainSpecificBreakpoints(response: DebugProtocol.Response, args: any): CustomRequestResult {
-        if (!this.isGetDomainSpecificBreakpointsArguments(args)) return this.createMalformedArgumentsError('getDomainSpecificBreakpoints', args);
-
-        const res: DAPExtension.GetDomainSpecificBreakpointsResponse = { breakpoints: this.runtime.breakpointManager.domainSpecificBreakpoints };
-
-        response.body = res;
-        return { status: "success", response: response };
-    }
-
     private setDomainSpecificBreakpoints(response: DebugProtocol.Response, args: any): CustomRequestResult {
         if (!this.isSetDomainSpecificBreakpointsArguments(args)) return this.createMalformedArgumentsError('setDomainSpecificBreakpoints', args);
 
-        this.runtime.breakpointManager.setDomainSpecificBreakpoints(args.breakpoints);
 
+
+        const res: DAPExtension.SetDomainSpecificBreakpointsResponse = {
+            breakpoints: this.runtime.breakpointManager.setDomainSpecificBreakpoints(args.breakpoints).map(b => ({ verified: b }))
+        };
+
+        response.body = res;
         return { status: "success", response: response };
     }
 
@@ -119,6 +83,33 @@ export class CustomRequestHandler {
         return { status: "success", response: response, event: new InvalidatedEvent(['stacks']) };
     }
 
+    private getModelElementsReferences(response: DebugProtocol.Response, args: any): CustomRequestResult {
+        if (!this.isGetModelElementsReferencesArguments(args)) return this.createMalformedArgumentsError('getModelElementsReferences', args);
+
+        const res: DAPExtension.GetModelElementsReferencesResponse = {
+            //FIXME: label
+            elements: this.runtime.getModelElementsFromType(args.type).map(e => ({ id: e.id, types: e.types, label: e.attributes.name === undefined ? e.id : e.attributes.name }))
+        }
+
+        response.body = res;
+
+        return { status: "success", response: response };
+    }
+
+    private getModelElementReferenceFromSource(response: DebugProtocol.Response, args: any): CustomRequestResult {
+        if (!this.isGetModelElementReferenceFromSourceArguments(args)) return this.createMalformedArgumentsError('getModelElementReferenceFromSource', args);
+
+        const element: LRP.ModelElement | undefined = this.runtime.getModelElementFromSource(args.line, args.column);
+        const res: DAPExtension.GetModelElementReferenceFromSourceResponse = {
+            //FIXME: label
+            element: element !== undefined ? { id: element.id, types: element.types, label: element.attributes.name === undefined ? element.id : element.attributes.name } : undefined
+        }
+
+        response.body = res;
+
+        return { status: "success", response: response };
+    }
+
     /**
      * Checks whether an object is an instance of {@link DAPExtension.GetBreakpointTypesArguments}.
      * 
@@ -126,48 +117,6 @@ export class CustomRequestHandler {
      * @returns True if the object is an instance of {@link DAPExtension.GetBreakpointTypesArguments}, false otherwise.
      */
     private isGetBreakpointTypesArguments(args: any): args is DAPExtension.GetBreakpointTypesArguments {
-        return Object.entries(args).length == 1 && this.isArguments(args);
-    }
-
-    /**
-     * Checks whether an object is an instance of {@link DAPExtension.GetEnabledStandaloneBreakpointTypesArguments}.
-     * 
-     * @param args Object to check.
-     * @returns True if the object is an instance of {@link DAPExtension.GetEnabledStandaloneBreakpointTypesArguments}, false otherwise.
-     */
-    private isGetEnabledStandaloneBreakpointTypesArguments(args: any): args is DAPExtension.GetEnabledStandaloneBreakpointTypesArguments {
-        return Object.entries(args).length == 1 && this.isArguments(args);
-    }
-
-    /**
-     * Checks whether an object is an instance of {@link DAPExtension.EnableStandaloneBreakpointTypesArguments}.
-     * 
-     * @param args Object to check.
-     * @returns True if the object is an instance of {@link DAPExtension.EnableStandaloneBreakpointTypesArguments}, false otherwise.
-     */
-    private isEnableStandaloneBreakpointTypesArguments(args: any): args is DAPExtension.EnableStandaloneBreakpointTypesArguments {
-        const properties: string[] = ['sourceFile', 'breakpointTypesIds'];
-        return Object.entries(args).length == 2 && this.hasProperties(args, properties);
-    }
-
-    /**
-     * Checks whether an object is an instance of {@link DAPExtension.GetSourceBreakpointsTargetTypesArguments}.
-     * 
-     * @param args Object to check.
-     * @returns True if the object is an instance of {@link DAPExtension.GetSourceBreakpointsTargetTypesArguments}, false otherwise.
-     */
-    private isGetSourceBreakpointsTargetTypesArguments(args: any): args is DAPExtension.GetSourceBreakpointsTargetTypesArguments {
-        const properties: string[] = ['sourceFile', 'sourceBreakpointsIds'];
-        return Object.entries(args).length == 2 && this.hasProperties(args, properties);
-    }
-
-    /**
-     * Checks whether an object is an instance of {@link DAPExtension.GetDomainSpecificBreakpointsArguments}.
-     * 
-     * @param args Object to check.
-     * @returns True if the object is an instance of {@link DAPExtension.GetDomainSpecificBreakpointsArguments}, false otherwise.
-     */
-    private isGetDomainSpecificBreakpointsArguments(args: any): args is DAPExtension.GetDomainSpecificBreakpointsArguments {
         return Object.entries(args).length == 1 && this.isArguments(args);
     }
 
@@ -201,6 +150,28 @@ export class CustomRequestHandler {
     private isEnableStepArguments(args: any): args is DAPExtension.EnableStepArguments {
         const properties: string[] = ['sourceFile', 'stepId'];
         return Object.entries(args).length == 2 && this.hasProperties(args, properties);
+    }
+
+    /**
+     * Checks whether an object is an instance of {@link DAPExtension.GetModelElementsReferencesArguments}.
+     * 
+     * @param args Object to check.
+     * @returns True if the object is an instance of {@link DAPExtension.GetModelElementsReferencesArguments}, false otherwise.
+     */
+    private isGetModelElementsReferencesArguments(args: any): args is DAPExtension.GetModelElementsReferencesArguments {
+        const properties: string[] = ['sourceFile', 'type'];
+        return Object.entries(args).length == 2 && this.hasProperties(args, properties);
+    }
+
+    /**
+     * Checks whether an object is an instance of {@link DAPExtension.GetModelElementReferenceFromSourceArguments}.
+     * 
+     * @param args Object to check.
+     * @returns True if the object is an instance of {@link DAPExtension.GetModelElementReferenceFromSourceArguments}, false otherwise.
+     */
+    private isGetModelElementReferenceFromSourceArguments(args: any): args is DAPExtension.GetModelElementReferenceFromSourceArguments {
+        const properties: string[] = ['sourceFile', 'line', 'column'];
+        return Object.entries(args).length == 3 && this.hasProperties(args, properties);
     }
 
     /**
