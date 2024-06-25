@@ -22,16 +22,11 @@ export class CDAPBreakpointManager {
 
     private _domainSpecificBreakpoints: DAPExtension.DomainSpecificBreakpoint[];
 
-    /** Previously activated breakpoints targeting an AST element. */
-    private activatedDomainSpecificBreakpoints: Set<DAPExtension.DomainSpecificBreakpoint>;
-
     constructor(sourceFile: string, astElementLocator: ASTElementLocator, availableBreakpointTypes: LRP.BreakpointType[], lrProxy: LanguageRuntimeProxy) {
         this.sourceFile = sourceFile;
         this.astElementLocator = astElementLocator;
         this.lrProxy = lrProxy;
         this._domainSpecificBreakpoints = [];
-        this.activatedDomainSpecificBreakpoints = new Set();
-
         this._availableBreakpointTypes = new Map();
 
         for (const breakpointType of availableBreakpointTypes) {
@@ -46,10 +41,10 @@ export class CDAPBreakpointManager {
      * @param stepId ID of the step on which to check breakpoints.  
      * @returns The breakpoint that activated first, or undefined if no breakpoint was activated.
      */
-    public async checkBreakpoints(stepId: string): Promise<ActivatedBreakpoint | undefined> {
+    public async checkBreakpoints(stepId: string): Promise<ActivatedBreakpoint[]> {
+        const activatedBreakpoints: ActivatedBreakpoint[] = [];
+
         for (const breakpoint of this._domainSpecificBreakpoints) {
-            if (this.activatedDomainSpecificBreakpoints.has(breakpoint)) continue;
-            
             const args: LRP.CheckBreakpointArguments = {
                 sourceFile: this.sourceFile,
                 typeId: breakpoint.breakpointTypeId,
@@ -59,16 +54,10 @@ export class CDAPBreakpointManager {
 
             const checkBreakpointResponse: LRP.CheckBreakpointResponse = await this.lrProxy.checkBreakpoint(args);
 
-            if (checkBreakpointResponse.isActivated) {
-                this.activatedDomainSpecificBreakpoints.add(breakpoint);
-                return {
-                    message: checkBreakpointResponse.message
-                };
-            }
+            if (checkBreakpointResponse.isActivated) activatedBreakpoints.push({ message: checkBreakpointResponse.message });
         }
 
-        this.activatedDomainSpecificBreakpoints.clear();
-        return undefined;
+        return activatedBreakpoints;
     }
 
     /**

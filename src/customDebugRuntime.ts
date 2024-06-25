@@ -22,7 +22,7 @@ export class CustomDebugRuntime {
     private pauseOnEnd: boolean;
 
     /** True if multiple pauses on the  same runtime state must be skipped. */
-    private skipRedundantPauses: boolean;
+    // private skipRedundantPauses: boolean;
 
     /** Debugging session which started this debug runtime. */
     private debugSession: CustomDebugSession;
@@ -59,10 +59,7 @@ export class CustomDebugRuntime {
     private pauseRequired: boolean;
 
     /** True if the execution is currently paused. */
-    private pausedOnCurrentStep: boolean;
-
-    /** True if the execution is currently paused at the start. */
-    private pausedOnStart: boolean;
+    private pausedOnNonDeterminism: boolean;
 
     constructor(debugSession: CustomDebugSession, sourceFile: string, languageRuntimePort: number, pauseOnEnd: boolean, skipRedundantPauses: boolean, initArgs: InitializationParams) {
         this._sourceFile = sourceFile;
@@ -70,12 +67,11 @@ export class CustomDebugRuntime {
         this.astElementLocator = new ASTElementLocator(initArgs.linesStartAt1, initArgs.columnsStartAt1);
         this.modelElementTypeRegistry = new ModelElementTypeRegistry();
         this.pauseOnEnd = pauseOnEnd;
-        this.skipRedundantPauses = skipRedundantPauses;
+        // this.skipRedundantPauses = skipRedundantPauses;
         this.debugSession = debugSession;
         this.lrProxy = new LanguageRuntimeProxy(languageRuntimePort);
         this.initializationStatus = new InitializationStatus();
-        this.pausedOnCurrentStep = true;
-        this.pausedOnStart = false;
+        this.pausedOnNonDeterminism = true;
         this.initialBreakpointsRequest = null;
     }
 
@@ -85,13 +81,13 @@ export class CustomDebugRuntime {
      * @param pauseOnStart True if a pause must be triggered after the initialization, false otherwise.
      * @param additionalArgs Additional arguments necessary to initialize the execution.
      */
-    public async initializeExecution(pauseOnStart: boolean, additionalArgs?: any): Promise<void> {
+    public async initializeExecution(pauseOnStart: boolean, additionalArgs?: any): Promise<boolean> {
         const parseResponse: LRP.ParseResponse = await this.lrProxy.parse({ sourceFile: this._sourceFile });
         await this.lrProxy.initializeExecution({ sourceFile: this._sourceFile, bindings: { ...additionalArgs } });
         const processedAst: ProcessedModel = processModel(parseResponse.astRoot);
 
         const getBreakpointTypes: LRP.GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
-        
+
         this.astElementLocator.registerAst(processedAst.root);
         this.modelElementTypeRegistry.registerAstElements(processedAst.typeToElements);
         this.variableHandler = new VariableHandler(processedAst);
@@ -106,19 +102,10 @@ export class CustomDebugRuntime {
         this.pauseRequired = false;
         this.initializationStatus.setTrue();
 
-        if (pauseOnStart) {
-            this.pausedOnStart = true;
-            this._terminatedEventSent = false;
-            this.stop('start');
-            return;
-        }
-
-        this.pausedOnStart = false;
-
+        // no step scenario
         if (this._isExecutionDone) {
-            this.pausedOnCurrentStep = true;
-
             if (this.pauseOnEnd) {
+                this.pausedOnNonDeterminism = false
                 this._terminatedEventSent = false;
                 this.stop('end');
             } else {
@@ -126,11 +113,36 @@ export class CustomDebugRuntime {
                 this.debugSession.sendTerminatedEvent();
             }
 
-            return;
+            return false;
         }
 
-        this.pausedOnCurrentStep = false;
+        // multiple steps scenario
+        if (this._stepManager.availableSteps.length > 1) {
+            this.pausedOnNonDeterminism = true;
+            this._terminatedEventSent = false;
+            pauseOnStart ? this.stop('start and choice') : this.stop('choice');;
+            return false;
+        }
+
+        // single step scenario
+        this.pausedOnNonDeterminism = false;
         this._terminatedEventSent = false;
+        const step: LRP.Step | undefined = this._stepManager.enabledStep;
+        if (step === undefined) throw new NoEnabledStepError();
+        const activatedBreakpoints: ActivatedBreakpoint[] = await this._breakpointManager.checkBreakpoints(step.id);
+
+        if (activatedBreakpoints.length > 0) {
+            const breakpointsAggregatedMessage: string = activatedBreakpoints.map(b => b.message).join('\n');
+            pauseOnStart ? this.stop('start and breakpoint', `Paused on start.\n ${breakpointsAggregatedMessage}`) : this.stop('breakpoint', breakpointsAggregatedMessage);
+            return false;
+        }
+
+        if (pauseOnStart) {
+            this.stop('start');
+            return false;
+        }
+
+        return true;
     }
 
 
@@ -163,56 +175,12 @@ export class CustomDebugRuntime {
     public async nextStep(): Promise<void> {
         if (!this._sourceFile) throw new Error('No sources loaded.');
         if (this.checkExecutionDone()) return;
-        if (this._stepManager.enabledStep == undefined) throw new NoEnabledStepError();
+        if (this._stepManager.enabledStep === undefined) throw new NoEnabledStepError();
 
         this.pauseRequired = false;
 
         const targetStep: LRP.Step = this._stepManager.enabledStep;
-        let completedSteps: string[] = [];
-
-        while (!this._isExecutionDone && !completedSteps.includes(targetStep.id)) {
-            if (this.pauseRequired) {
-                this.stop('pause');
-                return;
-            }
-
-            // Check non-determinism on next top-level composite step
-            if (!this.pausedOnCurrentStep && this._stepManager.availableSteps.length > 1) {
-                this.stop('choice');
-                return;
-            }
-
-            let currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
-            if (currentStep == undefined) throw new NoEnabledStepError();
-
-            // Find and execute next atomic step
-            try {
-                const atomicStep: LRP.Step = await this.findNextAtomicStep(currentStep);
-                completedSteps = await this.executeAtomicStep(atomicStep);
-            } catch (error: unknown) {
-                if (error instanceof NonDeterminismError) {
-                    this.stop('choice');
-                    return;
-                }
-                else if (error instanceof ActivatedBreakpointError) {
-                    this.stop('breakpoint', error.breakpoint.message);
-                    return;
-                }
-            }
-        }
-
-        if (!this._isExecutionDone) {
-            this.stop('step');
-            return;
-        }
-
-        if (this.pauseOnEnd) {
-            this.stop('end');
-            return;
-        }
-
-        this._terminatedEventSent = true;
-        this.debugSession.sendTerminatedEvent();
+        await this._run(targetStep);
     }
 
     /**
@@ -228,30 +196,36 @@ export class CustomDebugRuntime {
     public async stepIn(): Promise<void> {
         if (!this._sourceFile) throw new Error('No sources loaded.');
         if (this.checkExecutionDone()) return;
-        if (this._stepManager.enabledStep == undefined) throw new NoEnabledStepError();
 
-        const enabledStep: LRP.Step = this._stepManager.enabledStep;
+        const enabledStep: LRP.Step | undefined = this._stepManager.enabledStep;
+        if (enabledStep === undefined) throw new NoEnabledStepError();
 
-        try {
-            if (enabledStep.isComposite) {
-                await this.enterCompositeStep(enabledStep);
-            } else {
-                await this.executeAtomicStep(enabledStep);
-            }
-        } catch (error: unknown) {
-            if (error instanceof ActivatedBreakpointError) {
-                this.stop('breakpoint', error.breakpoint.message);
+        // Check breakpoints BEFORE step
+        if (this.pausedOnNonDeterminism) {
+            const activatedBreakpoints: ActivatedBreakpoint[] = this.pausedOnNonDeterminism ? await this._breakpointManager.checkBreakpoints(enabledStep.id) : [];
+            if (activatedBreakpoints.length > 0) {
+                this.stop('breakpoint', activatedBreakpoints.map(b => b.message).join('\n'));
                 return;
             }
         }
 
-        if (!this._isExecutionDone) {
-            this.stop('step');
+        let pauseInformation: PauseInformation | undefined = undefined;
+        if (enabledStep.isComposite) {
+            pauseInformation = await this.enterCompositeStep(enabledStep);
+        } else {
+            pauseInformation = (await this.executeAtomicStep(enabledStep)).pauseInformation;
+        }
+
+        // Paused on something else than just step
+        if (pauseInformation !== undefined) {
+            pauseInformation.addReason('step');
+            this.stop(pauseInformation.formatReasons(), pauseInformation.formatMessages());
             return;
         }
 
-        if (this.pauseOnEnd) {
-            this.stop('end');
+        // Paused just on step
+        if (!this._isExecutionDone) {
+            this.stop('step');
             return;
         }
 
@@ -281,52 +255,8 @@ export class CustomDebugRuntime {
             return;
         }
 
-        const parentStepId: string = this._stepManager.stack[this._stepManager.stack.length - 1].id;
-        let completedSteps: string[] = [];
-
-        while (!this._isExecutionDone && !completedSteps.includes(parentStepId)) {
-            if (this.pauseRequired) {
-                this.stop('pause');
-                return;
-            }
-
-            // Check non-determinism on next top-level composite step
-            if (!this.pausedOnCurrentStep && this._stepManager.availableSteps.length > 1) {
-                this.stop('choice');
-                return;
-            }
-
-            let currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
-            if (currentStep == undefined) throw new NoEnabledStepError();
-
-            // Find and execute next atomic step
-            try {
-                const atomicStep: LRP.Step = await this.findNextAtomicStep(currentStep);
-                completedSteps = await this.executeAtomicStep(atomicStep);
-            } catch (error: unknown) {
-                if (error instanceof NonDeterminismError) {
-                    this.stop('choice');
-                    return;
-                }
-                else if (error instanceof ActivatedBreakpointError) {
-                    this.stop('breakpoint', error.breakpoint.message);
-                    return;
-                }
-            }
-        }
-
-        if (!this._isExecutionDone) {
-            this.stop('step');
-            return;
-        }
-
-        if (this.pauseOnEnd) {
-            this.stop('end');
-            return;
-        }
-
-        this._terminatedEventSent = true;
-        this.debugSession.sendTerminatedEvent();
+        const parentStep: LRP.Step = this._stepManager.stack[this._stepManager.stack.length - 1];
+        await this._run(parentStep);
     }
 
     /**
@@ -478,40 +408,42 @@ export class CustomDebugRuntime {
      * 
      * @throws {NoEnabledStepError} If no step is enabled.
      */
-    private async _run(): Promise<void> {
-        while (!this._isExecutionDone) {
-            if (this.pauseRequired) {
-                this.stop('pause');
-                return;
-            }
+    private async _run(targetStep?: LRP.Step): Promise<void> {
+        let completedSteps: string[] = [];
 
-            // Check non-determinism on next top-level composite step
-            if (!this.pausedOnCurrentStep && this._stepManager.availableSteps.length > 1) {
-                this.stop('choice');
-                return;
-            }
-
-            const currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
+        while (!this._isExecutionDone && (targetStep === undefined || !completedSteps.includes(targetStep.id))) {
+            let currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
             if (currentStep == undefined) throw new NoEnabledStepError();
 
-            // Find and execute next atomic step
-            try {
-                const atomicStep: LRP.Step = await this.findNextAtomicStep(currentStep);
-                await this.executeAtomicStep(atomicStep);
-            } catch (error: unknown) {
-                if (error instanceof NonDeterminismError) {
-                    this.stop('choice');
-                    return;
-                }
-                else if (error instanceof ActivatedBreakpointError) {
-                    this.stop('breakpoint', error.breakpoint.message);
+            // Check breakpoints BEFORE step
+            if (this.pausedOnNonDeterminism) {
+                const activatedBreakpoints: ActivatedBreakpoint[] = this.pausedOnNonDeterminism ? await this._breakpointManager.checkBreakpoints(currentStep.id) : [];
+                if (activatedBreakpoints.length > 0) {
+                    this.stop('breakpoint', activatedBreakpoints.map(b => b.message).join('\n'));
                     return;
                 }
             }
+
+            const nextAtomicStep: NextAtomicStepSearchResult = await this.findNextAtomicStep(currentStep);
+            if (nextAtomicStep.status === 'failed' || nextAtomicStep.pauseInformation !== undefined) {
+                this.stop(nextAtomicStep.pauseInformation!.formatReasons(), nextAtomicStep.pauseInformation!.formatMessages());
+                return;
+            }
+
+            const atomicStepExecutionResult: AtomicStepExecutionResult = await this.executeAtomicStep(nextAtomicStep.step);
+            if (atomicStepExecutionResult.pauseInformation !== undefined) {
+                const pauseInformation: PauseInformation = atomicStepExecutionResult.pauseInformation;
+                if (targetStep !== undefined && atomicStepExecutionResult.completedSteps.includes(targetStep.id)) pauseInformation.addReason('step');
+                this.stop(pauseInformation.formatReasons(), pauseInformation.formatMessages());
+                return;
+            }
+
+            completedSteps = atomicStepExecutionResult.completedSteps;
         }
 
-        if (this.pauseOnEnd) {
-            this.stop('end');
+        // Paused just on step
+        if (targetStep !== undefined && !this._isExecutionDone) {
+            this.stop('step');
             return;
         }
 
@@ -528,18 +460,25 @@ export class CustomDebugRuntime {
      * @throws {NonDeterminismError} If a non-deterministic situation occurs before an atomic step is reached.
      * @throws {NoEnabledStepError} If no step is automatically enabled.
      */
-    private async findNextAtomicStep(step: LRP.Step): Promise<LRP.Step> {
+    private async findNextAtomicStep(step: LRP.Step): Promise<NextAtomicStepSearchResult> {
         let currentStep: LRP.Step | undefined = step;
 
         while (currentStep.isComposite) {
-            await this.enterCompositeStep(currentStep);
-            if (this._stepManager.availableSteps.length > 1) throw new NonDeterminismError();
+            const pauseInformation: PauseInformation | undefined = await this.enterCompositeStep(currentStep);
+            if (pauseInformation === undefined) {
+                currentStep = this._stepManager.enabledStep;
+                if (currentStep == undefined) throw new NoEnabledStepError();
+                continue;
+            }
+
+            if (this._stepManager.availableSteps.length !== 1) return { status: "failed", pauseInformation: pauseInformation };
 
             currentStep = this._stepManager.enabledStep;
             if (currentStep == undefined) throw new NoEnabledStepError();
+            return { status: "success", step: currentStep, pauseInformation: pauseInformation };
         }
 
-        return currentStep;
+        return { status: "success", step: currentStep };
     }
 
     /**
@@ -550,14 +489,8 @@ export class CustomDebugRuntime {
      * @throws {StepNotCompositeError} If the step is not composite.
      * @throws {ActivatedBreakpointError} If a breakpoint is activated before entering the step.
      */
-    private async enterCompositeStep(step: LRP.Step): Promise<void> {
+    private async enterCompositeStep(step: LRP.Step): Promise<PauseInformation | undefined> {
         if (!step.isComposite) throw new StepNotCompositeError(step);
-
-        if (!this.pausedOnCurrentStep || !this.skipRedundantPauses) {
-            // Check breakpoints for composite step
-            const activatedBreakpoint: ActivatedBreakpoint | undefined = await this._breakpointManager.checkBreakpoints(step.id);
-            if (activatedBreakpoint !== undefined) throw new ActivatedBreakpointError(activatedBreakpoint);
-        }
 
         const enterCompositeStepArguments: LRP.EnterCompositeStepArguments = {
             sourceFile: this._sourceFile,
@@ -566,8 +499,7 @@ export class CustomDebugRuntime {
 
         await this.lrProxy.enterCompositeStep(enterCompositeStepArguments);
         await this.updateAvailableSteps([]);
-        this.pausedOnCurrentStep = false;
-        this.pausedOnStart = false;
+        return this.checkPause();
     }
 
     /**
@@ -580,14 +512,8 @@ export class CustomDebugRuntime {
      * @throws {StepNotAtomicError} If the step is not atomic.
      * @throws {ActivatedBreakpointError} If a breakpoint is activated before executing the step.
      */
-    private async executeAtomicStep(step: LRP.Step): Promise<string[]> {
+    private async executeAtomicStep(step: LRP.Step): Promise<AtomicStepExecutionResult> {
         if (step.isComposite) throw new StepNotAtomicError(step);
-
-        if (!this.pausedOnCurrentStep || !this.skipRedundantPauses) {
-            // Check breakpoints for atomic step
-            const activatedBreakpoint: ActivatedBreakpoint | undefined = await this._breakpointManager.checkBreakpoints(step.id);
-            if (activatedBreakpoint !== undefined) throw new ActivatedBreakpointError(activatedBreakpoint);
-        }
 
         const executeAtomicStepArguments: LRP.ExecuteAtomicStepArguments = {
             sourceFile: this._sourceFile,
@@ -597,11 +523,35 @@ export class CustomDebugRuntime {
         const response = await this.lrProxy.executeAtomicStep(executeAtomicStepArguments);
         this.variableHandler.invalidateRuntime();
         await this.updateAvailableSteps(response.completedSteps);
-        this.pausedOnCurrentStep = false;
-        this.pausedOnStart = false;
-        this._isExecutionDone = this._stepManager.availableSteps.length == 0;
+        const pauseInformation: PauseInformation | undefined = await this.checkPause();
 
-        return response.completedSteps;
+        return { completedSteps: response.completedSteps, pauseInformation: pauseInformation };
+    }
+
+    private async checkPause(): Promise<PauseInformation | undefined> {
+        const pauseInformation: PauseInformation = new PauseInformation;
+        if (this.pauseRequired) pauseInformation.addReason('pause');
+        if (this._stepManager.availableSteps.length > 1) {
+            this.pausedOnNonDeterminism = true;
+            pauseInformation.addReason('choice');
+            return pauseInformation;
+        }
+
+        this.pausedOnNonDeterminism = false;
+        if (this._isExecutionDone && this.pauseOnEnd) pauseInformation.addReason('end');
+
+        if (!this._isExecutionDone) {
+            const step: LRP.Step | undefined = this._stepManager.enabledStep;
+            if (step === undefined) throw new NoEnabledStepError();
+    
+            const activatedBreakpoints: ActivatedBreakpoint[] = await this._breakpointManager.checkBreakpoints(step.id);
+            if (activatedBreakpoints.length > 0) {
+                pauseInformation.addReason('breakpoint');
+                pauseInformation.addMessages(...activatedBreakpoints.map(b => b.message));
+            }
+        }
+        
+        return pauseInformation.isPaused() ? pauseInformation : undefined;            
     }
 
     /**
@@ -629,7 +579,6 @@ export class CustomDebugRuntime {
      * @param message Message to be displayed to the end-user.
      */
     private stop(reason: string, message?: string | undefined): void {
-        this.pausedOnCurrentStep = true;
         this.debugSession.sendStoppedEvent(reason, message);
     }
 
@@ -643,12 +592,6 @@ export class CustomDebugRuntime {
      */
     private checkExecutionDone(): boolean {
         if (!this.isExecutionDone) return false;
-
-        if (this.pausedOnStart && !this.skipRedundantPauses) {
-            this.pausedOnStart = false;
-            this.stop('end');
-            return true;
-        }
 
         if (!this._terminatedEventSent) {
             this.debugSession.sendTerminatedEvent();
@@ -693,26 +636,55 @@ export type InitializationParams = {
     columnsStartAt1: boolean;
 }
 
-class NonDeterminismError implements Error {
-    name: string;
-    message: string;
+class PauseInformation {
+    private reasons: string[] = [];
+    private messages: string[] = [];
 
-    constructor() {
-        this.name = 'NonDeterminismError';
-        this.message = 'Multiple steps are available.'
+    public addReason(reason: string): void {
+        this.reasons.push(reason);
+    }
+
+    public isPaused(): boolean {
+        return this.reasons.length > 0;
+    }
+
+    public addMessages(...messages: string[]): void {
+        this.messages.push(...messages);
+    }
+
+    public formatReasons(): string {
+        return this.reasons.join(' and ');
+    }
+
+    public formatMessages(): string | undefined {
+        if (this.messages.length === 0) return undefined;
+
+        let aggregatedMessage: string = this.messages.join('\n');
+        if (this.reasons.includes('pause')) aggregatedMessage = `Paused on pause.\n${aggregatedMessage}`;
+        if (this.reasons.includes('step')) aggregatedMessage = `Paused on step.\n${aggregatedMessage}`;
+        if (this.reasons.includes('choice')) aggregatedMessage = `Paused on choice.\n${aggregatedMessage}`;
+        if (this.reasons.includes('end')) aggregatedMessage = `Paused on end.\n${aggregatedMessage}`;
+
+        return aggregatedMessage;
     }
 }
 
-class ActivatedBreakpointError implements Error {
-    name: string;
-    message: string;
-    breakpoint: ActivatedBreakpoint;
+type NextAtomicStepSearchResult = SuccessfulNextAtomicStepSearchResult | FailedNextAtomicStepSearchResult;
 
-    constructor(breakpoint: ActivatedBreakpoint) {
-        this.name = 'ActivatedBreakpointError';
-        this.message = 'A breakpoint is activated.'
-        this.breakpoint = breakpoint;
-    }
+type SuccessfulNextAtomicStepSearchResult = {
+    status: 'success';
+    step: LRP.Step;
+    pauseInformation?: PauseInformation;
+}
+
+type FailedNextAtomicStepSearchResult = {
+    status: 'failed';
+    pauseInformation: PauseInformation;
+}
+
+type AtomicStepExecutionResult = {
+    completedSteps: string[];
+    pauseInformation?: PauseInformation;
 }
 
 class NoEnabledStepError implements Error {
