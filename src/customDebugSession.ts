@@ -19,8 +19,6 @@ export interface CustomLaunchRequestArguments extends DebugProtocol.LaunchReques
     /** True if the program should pause after executing the last step, instead of terminating the debug session. */
     pauseOnEnd?: boolean;
 
-    skipRedundantPauses?: boolean;
-
     /** Additional arguments that may be required for specific languages. */
     additionalArgs?: any;
 }
@@ -229,7 +227,7 @@ export class CustomDebugSession extends DebugSession {
             columnsStartAt1: this.initializeArgs.columnsStartAt1 == undefined ? true : this.initializeArgs.columnsStartAt1
         }
 
-        this.runtime = new CustomDebugRuntime(this, args.sourceFile, args.languageRuntimePort, args.pauseOnEnd ? args.pauseOnEnd : false, args.skipRedundantPauses ? args.skipRedundantPauses : false, initArgs);
+        this.runtime = new CustomDebugRuntime(this, args.sourceFile, args.languageRuntimePort, args.pauseOnEnd ? args.pauseOnEnd : false, initArgs);
         this.customRequestHandler = new CustomRequestHandler(this.runtime);
 
         await this.runtime.initializeExecution(args.pauseOnStart ? args.pauseOnStart : false, args.additionalArgs);

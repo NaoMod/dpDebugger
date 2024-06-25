@@ -21,9 +21,6 @@ export class CustomDebugRuntime {
     /** True if a pause must be triggered before terminating the execution.*/
     private pauseOnEnd: boolean;
 
-    /** True if multiple pauses on the  same runtime state must be skipped. */
-    // private skipRedundantPauses: boolean;
-
     /** Debugging session which started this debug runtime. */
     private debugSession: CustomDebugSession;
 
@@ -61,13 +58,12 @@ export class CustomDebugRuntime {
     /** True if the execution is currently paused. */
     private pausedOnNonDeterminism: boolean;
 
-    constructor(debugSession: CustomDebugSession, sourceFile: string, languageRuntimePort: number, pauseOnEnd: boolean, skipRedundantPauses: boolean, initArgs: InitializationParams) {
+    constructor(debugSession: CustomDebugSession, sourceFile: string, languageRuntimePort: number, pauseOnEnd: boolean, initArgs: InitializationParams) {
         this._sourceFile = sourceFile;
         //TODO: change initArguments name
         this.astElementLocator = new ASTElementLocator(initArgs.linesStartAt1, initArgs.columnsStartAt1);
         this.modelElementTypeRegistry = new ModelElementTypeRegistry();
         this.pauseOnEnd = pauseOnEnd;
-        // this.skipRedundantPauses = skipRedundantPauses;
         this.debugSession = debugSession;
         this.lrProxy = new LanguageRuntimeProxy(languageRuntimePort);
         this.initializationStatus = new InitializationStatus();
@@ -550,7 +546,7 @@ export class CustomDebugRuntime {
                 pauseInformation.addMessages(...activatedBreakpoints.map(b => b.message));
             }
         }
-        
+
         return pauseInformation.isPaused() ? pauseInformation : undefined;            
     }
 
