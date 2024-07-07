@@ -4,7 +4,7 @@ import * as DAPExtension from "./DAPExtension";
 import { CustomDebugRuntime } from "./customDebugRuntime";
 import * as LRP from "./lrp";
 
-
+// TODO: switch type checking methods to instanceof?
 export class CustomRequestHandler {
 
     constructor(private runtime: CustomDebugRuntime) { }
@@ -20,8 +20,8 @@ export class CustomRequestHandler {
             case 'getAvailableSteps':
                 return this.getAvailableSteps(response, args);
 
-            case 'enableStep':
-                return this.enableStep(response, args);
+            case 'selectStep':
+                return this.selectStep(response, args);
 
             case 'getModelElementsReferences':
                 return this.getModelElementsReferences(response, args);
@@ -76,10 +76,10 @@ export class CustomRequestHandler {
         return { status: "success", response: response };
     }
 
-    private enableStep(response: DebugProtocol.Response, args: any): CustomRequestResult {
-        if (!this.isEnableStepArguments(args)) return this.createMalformedArgumentsError('enableStep', args);
+    private selectStep(response: DebugProtocol.Response, args: any): CustomRequestResult {
+        if (!this.isSelectStepArguments(args)) return this.createMalformedArgumentsError('selectStep', args);
 
-        this.runtime.enableStep(args.stepId);
+        this.runtime.selectStep(args.stepId);
         return { status: "success", response: response, event: new InvalidatedEvent(['stacks']) };
     }
 
@@ -87,8 +87,7 @@ export class CustomRequestHandler {
         if (!this.isGetModelElementsReferencesArguments(args)) return this.createMalformedArgumentsError('getModelElementsReferences', args);
 
         const res: DAPExtension.GetModelElementsReferencesResponse = {
-            //FIXME: label
-            elements: this.runtime.getModelElementsFromType(args.type).map(e => ({ id: e.id, types: e.types, label: e.attributes.name === undefined ? e.id : e.attributes.name }))
+            elements: this.runtime.getModelElementsFromType(args.type).map(e => ({ id: e.id, types: e.types, label: e.label ?? e.id }))
         }
 
         response.body = res;
@@ -101,8 +100,7 @@ export class CustomRequestHandler {
 
         const element: LRP.ModelElement | undefined = this.runtime.getModelElementFromSource(args.line, args.column);
         const res: DAPExtension.GetModelElementReferenceFromSourceResponse = {
-            //FIXME: label
-            element: element !== undefined ? { id: element.id, types: element.types, label: element.attributes.name === undefined ? element.id : element.attributes.name } : undefined
+            element: element !== undefined ? { id: element.id, types: element.types, label: element.label ?? element.id } : undefined
         }
 
         response.body = res;
@@ -142,12 +140,12 @@ export class CustomRequestHandler {
     }
 
     /**
-     * Checks whether an object is an instance of {@link DAPExtension.EnableStepArguments}.
+     * Checks whether an object is an instance of {@link DAPExtension.SelectStepArguments}.
      * 
      * @param args Object to check.
-     * @returns True if the object is an instance of {@link DAPExtension.EnableStepArguments}, false otherwise.
+     * @returns True if the object is an instance of {@link DAPExtension.SelectStepArguments}, false otherwise.
      */
-    private isEnableStepArguments(args: any): args is DAPExtension.EnableStepArguments {
+    private isSelectStepArguments(args: any): args is DAPExtension.SelectStepArguments {
         const properties: string[] = ['sourceFile', 'stepId'];
         return Object.entries(args).length == 2 && this.hasProperties(args, properties);
     }

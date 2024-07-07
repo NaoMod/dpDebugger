@@ -48,7 +48,7 @@ export class CDAPBreakpointManager {
             const args: LRP.CheckBreakpointArguments = {
                 sourceFile: this.sourceFile,
                 typeId: breakpoint.breakpointTypeId,
-                bindings: breakpoint.params,
+                entries: breakpoint.entries,
                 stepId: stepId
             };
 
@@ -83,7 +83,7 @@ export class CDAPBreakpointManager {
                 continue;
             }
 
-            const hasPossibleBreakpointType: boolean = this.availableBreakpointTypes.some(bt => bt.parameters.length > 0 && bt.parameters[0].type === "reference" && element.types.includes(bt.parameters[0].elementType));
+            const hasPossibleBreakpointType: boolean = this.availableBreakpointTypes.some(bt => bt.parameters.length > 0 && bt.parameters[0].type === "element" && element.types.includes(bt.parameters[0].elementType));
             if (!hasPossibleBreakpointType) {
                 setBreakpoints.push(new Breakpoint(false));
                 continue;

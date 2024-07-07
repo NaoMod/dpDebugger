@@ -381,7 +381,7 @@ export class CustomDebugSession extends DebugSession {
 
             // Produce root frame
             if (i === stack.length) {
-                const location: LRP.Location | null | undefined = stack.length === 0 ? await this.runtime.getEnabledStepLocation() : stackLocations.get(stack[0]);
+                const location: LRP.Location | null | undefined = stack.length === 0 ? await this.runtime.getSelectedStepLocation() : stackLocations.get(stack[0]);
                 if (location === undefined) throw new Error('Undefined location for stack step.');
 
                 stackFrames.push({
@@ -399,7 +399,7 @@ export class CustomDebugSession extends DebugSession {
             }
 
             // Produce frame for a composite step
-            const location: LRP.Location | null | undefined = i === 0 ? await this.runtime.getEnabledStepLocation() : stackLocations.get(stack[stack.length - i]);
+            const location: LRP.Location | null | undefined = i === 0 ? await this.runtime.getSelectedStepLocation() : stackLocations.get(stack[stack.length - i]);
             if (location === undefined) throw new Error('Undefined location for stack step.');
 
             stackFrames.push({

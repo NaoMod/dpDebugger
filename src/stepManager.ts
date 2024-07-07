@@ -4,8 +4,8 @@ import * as LRP from "./lrp";
  * Manages execution steps provided by the language runtime.
  */
 export class StepManager {
-    /** Currently enabled step. */
-    private _enabledStep?: LRP.Step;
+    /** Currently selected step. */
+    private _selectedStep?: LRP.Step;
 
     /** Currently available steps. */
     public availableSteps: LRP.Step[];
@@ -21,7 +21,7 @@ export class StepManager {
 
     constructor(availableSteps: LRP.Step[]) {
         this.availableSteps = availableSteps;
-        this._enabledStep = availableSteps.length > 0 ? availableSteps[0] : undefined;
+        this._selectedStep = availableSteps.length > 0 ? availableSteps[0] : undefined;
         this.stack = [];
         this.availableStepsLocations = new Map();
         this.stackLocations = new Map();
@@ -36,15 +36,15 @@ export class StepManager {
      * @param completedSteps Completed steps since the last update.
      */
     public update(availableSteps: LRP.Step[], completedSteps: string[]): void {
-        if (this._enabledStep === undefined) throw new Error('No step is enabled.');
+        if (this._selectedStep === undefined) throw new Error('No step is selected.');
 
         // entered composite step
         if (completedSteps.length == 0) {
-            const enabledStepLocation: LRP.Location | null | undefined = this.availableStepsLocations.get(this._enabledStep);
-            if (enabledStepLocation === undefined) throw new Error('No location for enabled step.');
+            const selectedStepLocation: LRP.Location | null | undefined = this.availableStepsLocations.get(this._selectedStep);
+            if (selectedStepLocation === undefined) throw new Error('No location for selected step.');
 
-            this.stack.push(this._enabledStep);
-            this.stackLocations.set(this._enabledStep, enabledStepLocation);
+            this.stack.push(this._selectedStep);
+            this.stackLocations.set(this._selectedStep, selectedStepLocation);
         }
         // executed atomic step
         else {
@@ -52,24 +52,24 @@ export class StepManager {
         }
 
         this.availableSteps = availableSteps;
-        this._enabledStep = availableSteps.length > 0 ? availableSteps[0] : undefined;
+        this._selectedStep = availableSteps.length > 0 ? availableSteps[0] : undefined;
         this.availableStepsLocations.clear();
     }
 
     /**
-     * Enables a step from the currently available ones.
+     * Selects a step from the currently available ones.
      * 
-     * @param stepId ID of the step to enable.
+     * @param stepId ID of the step to select.
      */
-    public enableStep(stepId: string): void {
+    public selectStep(stepId: string): void {
         const step: LRP.Step | undefined = this.availableSteps.find(step => step.id === stepId);
 
-        if (step != undefined) this._enabledStep = step;
+        if (step != undefined) this._selectedStep = step;
     }
 
-    /** Currently enabled step. */
-    public get enabledStep(): LRP.Step | undefined {
-        return this._enabledStep;
+    /** Currently selected step. */
+    public get selectedStep(): LRP.Step | undefined {
+        return this._selectedStep;
     }
 
     /**

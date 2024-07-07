@@ -24,7 +24,7 @@ export type ParseResponse = {
 */
 export type InitializeExecutionArguments = Arguments & {
     /** Arbitrary arguments necessary for the initialization of a runtime state. */
-    bindings: Bindings;
+    entries: Entries;
 }
 
 /**
@@ -33,9 +33,9 @@ export type InitializeExecutionArguments = Arguments & {
 export type InitializeExecutionResponse = {};
 
 /**
- * Bindings to model elements or literal values. 
+ * Arbitrary entries. 
  */
-export type Bindings = {
+export type Entries = {
     /** Properties with arbitrary key and value. */
     [key: string]: unknown;
 }
@@ -88,7 +88,7 @@ export type CheckBreakpointArguments = Arguments & {
     typeId: string;
 
     /** Arbitrary arguments required to check the breakpoint. */
-    bindings: Bindings;
+    entries: Entries;
 }
 
 /**
@@ -136,6 +136,9 @@ export type ModelElement = {
 
     /** Location of the element in its original source file. */
     location?: Location;
+
+    /** Textual representation of the element. */
+    label?: string;
 }
 
 /**
@@ -175,7 +178,7 @@ export type BreakpointType = {
 /**
  * Parameter required by a breakpoint type.
  */
-export type BreakpointParameter = PrimitiveBreakpointParameter | ReferenceBreakpointParameter;
+export type BreakpointParameter = PrimitiveBreakpointParameter | ElementBreakpointParameter;
 
 /**
  * Primitive breakpoint parameter.
@@ -197,9 +200,9 @@ export type PrimitiveBreakpointParameter = {
 /**
  * Reference breakpoint parameter.
  */
-export type ReferenceBreakpointParameter = {
+export type ElementBreakpointParameter = {
     /** Type of the parameter. */
-    type: 'reference';
+    type: 'element';
 
     /** Name of the parameter. */
     name: string;

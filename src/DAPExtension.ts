@@ -21,11 +21,11 @@ type Leaf = {
 }
 
 /**
- * Leaf which can be enabled or disabled.
+ * Leaf which can be selected.
  */
-type EnablableLeaf = Leaf & {
-    /** True if this item is currently enabled, false otherwise. */
-    isEnabled: boolean;
+type SelectedLeaf = Leaf & {
+    /** True if this item is currently selected, false otherwise. */
+    isSelected: boolean;
 }
 
 /**
@@ -52,7 +52,7 @@ export type BreakpointType = Leaf & {
 /**
  * Parameter required by a breakpoint type.
  */
-export type BreakpointParameter = PrimitiveBreakpointParameter | ReferenceBreakpointParameter;
+export type BreakpointParameter = PrimitiveBreakpointParameter | ElementBreakpointParameter;
 
 /**
  * Primitive breakpoint parameter.
@@ -74,9 +74,9 @@ export type PrimitiveBreakpointParameter = {
 /**
  * Reference breakpoint parameter.
  */
-export type ReferenceBreakpointParameter = {
+export type ElementBreakpointParameter = {
     /** Type of the parameter. */
-    type: 'reference';
+    type: 'element';
 
     /** Name of the parameter. */
     name: string;
@@ -106,8 +106,8 @@ export type SetDomainSpecificBreakpointsResponse = {
 
 /** Domain-specific breakpoint. */
 export type DomainSpecificBreakpoint = {
-    /** Parameters required by the breakpoint type. */
-    params: Entries;
+    /** Arguments required by the breakpoint type. */
+    entries: Entries;
 
     /** Breakpoint type to create an instance of. */
     breakpointTypeId: string;
@@ -141,17 +141,23 @@ export type GetAvailableStepsResponse = {
 }
 
 /**
- * Arguments for the 'enableStep' cDAP request.
+ * Arguments for the 'selectStep' cDAP request.
 */
-export type EnableStepArguments = Arguments & {
+export type SelectStepArguments = Arguments & {
     /** ID of the step to enable. */
     stepId: string;
 }
 
 /**
+ * Response to the 'selectStep' cDAP request.
+*/
+export type SelectStepResponse = { };
+
+
+/**
  * Execution step listed by the language runtime.
 */
-export type Step = EnablableLeaf;
+export type Step = SelectedLeaf;
 
 export type GetModelElementsReferencesArguments = Arguments & {
     type: string;

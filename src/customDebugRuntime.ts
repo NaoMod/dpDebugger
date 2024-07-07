@@ -79,7 +79,7 @@ export class CustomDebugRuntime {
      */
     public async initializeExecution(pauseOnStart: boolean, additionalArgs?: any): Promise<boolean> {
         const parseResponse: LRP.ParseResponse = await this.lrProxy.parse({ sourceFile: this._sourceFile });
-        await this.lrProxy.initializeExecution({ sourceFile: this._sourceFile, bindings: { ...additionalArgs } });
+        await this.lrProxy.initializeExecution({ sourceFile: this._sourceFile, entries: { ...additionalArgs } });
         const processedAst: ProcessedModel = processModel(parseResponse.astRoot);
 
         const getBreakpointTypes: LRP.GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
@@ -123,8 +123,8 @@ export class CustomDebugRuntime {
         // single step scenario
         this.pausedOnNonDeterminism = false;
         this._terminatedEventSent = false;
-        const step: LRP.Step | undefined = this._stepManager.enabledStep;
-        if (step === undefined) throw new NoEnabledStepError();
+        const step: LRP.Step | undefined = this._stepManager.selectedStep;
+        if (step === undefined) throw new NoSelectedStepError();
         const activatedBreakpoints: ActivatedBreakpoint[] = await this._breakpointManager.checkBreakpoints(step.id);
 
         if (activatedBreakpoints.length > 0) {
@@ -159,46 +159,46 @@ export class CustomDebugRuntime {
     }
 
     /**
-     * Executes the currently enabled step.
+     * Executes the currently selected step.
      * The execution pauses when the step is completed, a non-deterministic situation is reached,
      * a breakpoint is activated, a pause is required by the IDE or the execution
      * is completed (if pauseOnEnd is true, otherwise the execution is terminated).
      * 
      * Should only be called after {@link initializeExecution} has been called.
      * 
-     * @throws {NoEnabledStepError} If no step is enabled.
+     * @throws {NoSelectedStepError} If no step is selected.
      */
     public async nextStep(): Promise<void> {
         if (!this._sourceFile) throw new Error('No sources loaded.');
         if (this.checkExecutionDone()) return;
-        if (this._stepManager.enabledStep === undefined) throw new NoEnabledStepError();
+        if (this._stepManager.selectedStep === undefined) throw new NoSelectedStepError();
 
         this.pauseRequired = false;
 
-        const targetStep: LRP.Step = this._stepManager.enabledStep;
+        const targetStep: LRP.Step = this._stepManager.selectedStep;
         await this._run(targetStep);
     }
 
     /**
-     * Steps into the currently enabled step. If this step is atomic, execute it instead.
+     * Steps into the currently selected step. If this step is atomic, execute it instead.
      * The execution pauses when the step is stepped into (or executed in the case of an atomic step),
      * a breakpoint is activatedor the execution is completed (if pauseOnEnd is true,
      * otherwise the execution is terminated).
      * 
      * Should only be called after {@link initializeExecution} has been called.
      * 
-     * @throws {NoEnabledStepError} No step is enabled.
+     * @throws {NoSelectedStepError} No step is selected.
      */
     public async stepIn(): Promise<void> {
         if (!this._sourceFile) throw new Error('No sources loaded.');
         if (this.checkExecutionDone()) return;
 
-        const enabledStep: LRP.Step | undefined = this._stepManager.enabledStep;
-        if (enabledStep === undefined) throw new NoEnabledStepError();
+        const selectedStep: LRP.Step | undefined = this._stepManager.selectedStep;
+        if (selectedStep === undefined) throw new NoSelectedStepError();
 
         // Check breakpoints BEFORE step
         if (this.pausedOnNonDeterminism) {
-            const activatedBreakpoints: ActivatedBreakpoint[] = this.pausedOnNonDeterminism ? await this._breakpointManager.checkBreakpoints(enabledStep.id) : [];
+            const activatedBreakpoints: ActivatedBreakpoint[] = this.pausedOnNonDeterminism ? await this._breakpointManager.checkBreakpoints(selectedStep.id) : [];
             if (activatedBreakpoints.length > 0) {
                 this.stop('breakpoint', activatedBreakpoints.map(b => b.message).join('\n'));
                 return;
@@ -206,10 +206,10 @@ export class CustomDebugRuntime {
         }
 
         let pauseInformation: PauseInformation | undefined = undefined;
-        if (enabledStep.isComposite) {
-            pauseInformation = await this.enterCompositeStep(enabledStep);
+        if (selectedStep.isComposite) {
+            pauseInformation = await this.enterCompositeStep(selectedStep);
         } else {
-            pauseInformation = (await this.executeAtomicStep(enabledStep)).pauseInformation;
+            pauseInformation = (await this.executeAtomicStep(selectedStep)).pauseInformation;
         }
 
         // Paused on something else than just step
@@ -238,7 +238,7 @@ export class CustomDebugRuntime {
      * 
      * Should only be called after {@link initializeExecution} has been called.
      * 
-     * @throws {NoEnabledStepError} If no step is enabled.
+     * @throws {NoSelectedStepError} If no step is selected.
      */
     public async stepOut(): Promise<void> {
         if (!this._sourceFile) throw new Error('No sources loaded.');
@@ -294,31 +294,31 @@ export class CustomDebugRuntime {
                 id: step.id,
                 name: step.name,
                 description: step.description ? step.description : '',
-                isEnabled: this._stepManager.enabledStep ? this._stepManager.enabledStep === step : i == 0
+                isSelected: this._stepManager.selectedStep ? this._stepManager.selectedStep === step : i == 0
             };
         });
     }
 
     /**
-     * Retrieves the location of the currently enabled step.
+     * Retrieves the location of the currently selected step.
      * 
-     * @returns The location of the currently enabled step, or null if it has no location.
-     * @throws {NoEnabledStepError} If no step is enabled.
+     * @returns The location of the currently selected step, or null if it has no location.
+     * @throws {NoSelectedStepError} If no step is selected.
      */
-    public async getEnabledStepLocation(): Promise<LRP.Location | null> {
+    public async getSelectedStepLocation(): Promise<LRP.Location | null> {
         if (this._isExecutionDone) return null;
-        if (this._stepManager.enabledStep == undefined) throw new NoEnabledStepError();
+        if (this._stepManager.selectedStep == undefined) throw new NoSelectedStepError();
 
-        let location: LRP.Location | null | undefined = this._stepManager.availableStepsLocations.get(this._stepManager.enabledStep);
+        let location: LRP.Location | null | undefined = this._stepManager.availableStepsLocations.get(this._stepManager.selectedStep);
 
         if (location !== undefined) return location;
 
         const response: LRP.GetStepLocationResponse = await this.lrProxy.getStepLocation({
             sourceFile: this._sourceFile,
-            stepId: this._stepManager.enabledStep.id
+            stepId: this._stepManager.selectedStep.id
         });
 
-        this._stepManager.availableStepsLocations.set(this._stepManager.enabledStep, response.location ? response.location : null);
+        this._stepManager.availableStepsLocations.set(this._stepManager.selectedStep, response.location ? response.location : null);
 
         return response.location !== undefined ? response.location : null;
     }
@@ -331,12 +331,12 @@ export class CustomDebugRuntime {
     }
 
     /**
-     * Enables a step from the currently available steps.
+     * Selects a step from the currently available steps.
      * 
-     * @param stepId ID of the step to enable.
+     * @param stepId ID of the step to select.
      */
-    public enableStep(stepId: string): void {
-        this._stepManager.enableStep(stepId);
+    public selectStep(stepId: string): void {
+        this._stepManager.selectStep(stepId);
     }
 
     /**
@@ -402,14 +402,14 @@ export class CustomDebugRuntime {
      * Resumes the execution.
      * Called either by {@link run} or {@link stepOut}.
      * 
-     * @throws {NoEnabledStepError} If no step is enabled.
+     * @throws {NoSelectedStepError} If no step is selected.
      */
     private async _run(targetStep?: LRP.Step): Promise<void> {
         let completedSteps: string[] = [];
 
         while (!this._isExecutionDone && (targetStep === undefined || !completedSteps.includes(targetStep.id))) {
-            let currentStep: LRP.Step | undefined = this._stepManager.enabledStep;
-            if (currentStep == undefined) throw new NoEnabledStepError();
+            let currentStep: LRP.Step | undefined = this._stepManager.selectedStep;
+            if (currentStep == undefined) throw new NoSelectedStepError();
 
             // Check breakpoints BEFORE step
             if (this.pausedOnNonDeterminism) {
@@ -454,7 +454,7 @@ export class CustomDebugRuntime {
      * @param step First step to consider.
      * @returns The next atomic step.
      * @throws {NonDeterminismError} If a non-deterministic situation occurs before an atomic step is reached.
-     * @throws {NoEnabledStepError} If no step is automatically enabled.
+     * @throws {NoSelectedStepError} If no step is automatically selected.
      */
     private async findNextAtomicStep(step: LRP.Step): Promise<NextAtomicStepSearchResult> {
         let currentStep: LRP.Step | undefined = step;
@@ -462,15 +462,15 @@ export class CustomDebugRuntime {
         while (currentStep.isComposite) {
             const pauseInformation: PauseInformation | undefined = await this.enterCompositeStep(currentStep);
             if (pauseInformation === undefined) {
-                currentStep = this._stepManager.enabledStep;
-                if (currentStep == undefined) throw new NoEnabledStepError();
+                currentStep = this._stepManager.selectedStep;
+                if (currentStep == undefined) throw new NoSelectedStepError();
                 continue;
             }
 
             if (this._stepManager.availableSteps.length !== 1) return { status: "failed", pauseInformation: pauseInformation };
 
-            currentStep = this._stepManager.enabledStep;
-            if (currentStep == undefined) throw new NoEnabledStepError();
+            currentStep = this._stepManager.selectedStep;
+            if (currentStep == undefined) throw new NoSelectedStepError();
             return { status: "success", step: currentStep, pauseInformation: pauseInformation };
         }
 
@@ -537,8 +537,8 @@ export class CustomDebugRuntime {
         if (this._isExecutionDone && this.pauseOnEnd) pauseInformation.addReason('end');
 
         if (!this._isExecutionDone) {
-            const step: LRP.Step | undefined = this._stepManager.enabledStep;
-            if (step === undefined) throw new NoEnabledStepError();
+            const step: LRP.Step | undefined = this._stepManager.selectedStep;
+            if (step === undefined) throw new NoSelectedStepError();
     
             const activatedBreakpoints: ActivatedBreakpoint[] = await this._breakpointManager.checkBreakpoints(step.id);
             if (activatedBreakpoints.length > 0) {
@@ -565,7 +565,7 @@ export class CustomDebugRuntime {
         this._stepManager.update(response.availableSteps, completedSteps);
         this._isExecutionDone = response.availableSteps.length == 0;
 
-        if (!this._isExecutionDone) this.getEnabledStepLocation();
+        if (!this._isExecutionDone) this.getSelectedStepLocation();
     }
 
     /**
@@ -683,13 +683,13 @@ type AtomicStepExecutionResult = {
     pauseInformation?: PauseInformation;
 }
 
-class NoEnabledStepError implements Error {
+class NoSelectedStepError implements Error {
     name: string;
     message: string;
 
     constructor() {
-        this.name = 'NoEnabledStepError';
-        this.message = 'No step currently enabled.'
+        this.name = 'NoSelectedStepError';
+        this.message = 'No step currently selected.'
     }
 }
 
