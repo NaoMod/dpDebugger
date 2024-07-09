@@ -565,7 +565,8 @@ export class CustomDebugRuntime {
         this._stepManager.update(response.availableSteps, completedSteps);
         this._isExecutionDone = response.availableSteps.length == 0;
 
-        if (!this._isExecutionDone) this.getSelectedStepLocation();
+        // For stack while running
+        if (this._stepManager.selectedStep !== undefined && this._stepManager.selectedStep.isComposite) this.getSelectedStepLocation();
     }
 
     /**
