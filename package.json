@@ -1,7 +1,7 @@
 {
   "name": "configurable-debugger",
   "version": "1.0.0",
-  "description": "Configurable Debugger",
+  "description": "dpDebugger",
   "main": "out/main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -10,9 +10,9 @@
     "domain-specific languages",
     "language tooling"
   ],
-  "author": "Josselin ENET",
+  "author": "Josselin Enet",
   "license": "MIT",
-  "homepage": "https://github.com/NaoMod/Configurable-Debugger",
+  "homepage": "https://github.com/joss-enet/dpDebugger-SoSym",
   "dependencies": {
     "@types/node": "^18.11.0",
     "@vscode/debugadapter": "^1.57.0",

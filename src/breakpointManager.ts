@@ -4,12 +4,12 @@ import * as DAPExtension from "./DAPExtension";
 import { ASTElementLocator } from "./astElementLocator";
 import { isValidBreakpoint } from "./breakpointValidity";
 import { LanguageRuntimeProxy } from "./lrProxy";
-import * as LRP from "./lrp";
+import * as LRDP from "./lrdp";
 
 /**
- * Manages breakpoints set through cDAP.
+ * Manages breakpoints set through dpDAP.
  */
-export class CDAPBreakpointManager {
+export class DPDAPBreakpointManager {
 
     private sourceFile: string;
 
@@ -18,11 +18,11 @@ export class CDAPBreakpointManager {
     /** Registry of all AST elements. */
     private astElementLocator: ASTElementLocator;
 
-    private _availableBreakpointTypes: Map<string, LRP.BreakpointType>;
+    private _availableBreakpointTypes: Map<string, LRDP.BreakpointType>;
 
     private _domainSpecificBreakpoints: DAPExtension.DomainSpecificBreakpoint[];
 
-    constructor(sourceFile: string, astElementLocator: ASTElementLocator, availableBreakpointTypes: LRP.BreakpointType[], lrProxy: LanguageRuntimeProxy) {
+    constructor(sourceFile: string, astElementLocator: ASTElementLocator, availableBreakpointTypes: LRDP.BreakpointType[], lrProxy: LanguageRuntimeProxy) {
         this.sourceFile = sourceFile;
         this.astElementLocator = astElementLocator;
         this.lrProxy = lrProxy;
@@ -45,14 +45,14 @@ export class CDAPBreakpointManager {
         const activatedBreakpoints: ActivatedBreakpoint[] = [];
 
         for (const breakpoint of this._domainSpecificBreakpoints) {
-            const args: LRP.CheckBreakpointArguments = {
+            const args: LRDP.CheckBreakpointArguments = {
                 sourceFile: this.sourceFile,
                 typeId: breakpoint.breakpointTypeId,
                 entries: breakpoint.entries,
                 stepId: stepId
             };
 
-            const checkBreakpointResponse: LRP.CheckBreakpointResponse = await this.lrProxy.checkBreakpoint(args);
+            const checkBreakpointResponse: LRDP.CheckBreakpointResponse = await this.lrProxy.checkBreakpoint(args);
 
             if (checkBreakpointResponse.isActivated) activatedBreakpoints.push({ message: checkBreakpointResponse.message });
         }
@@ -77,7 +77,7 @@ export class CDAPBreakpointManager {
                 continue;
             }
 
-            const element: LRP.ModelElement | undefined = this.astElementLocator.getElementFromPosition(sourceBreakpoint.line, sourceBreakpoint.column);
+            const element: LRDP.ModelElement | undefined = this.astElementLocator.getElementFromPosition(sourceBreakpoint.line, sourceBreakpoint.column);
             if (element === undefined || element.location === undefined) {
                 setBreakpoints.push(new Breakpoint(false));
                 continue;
@@ -101,7 +101,7 @@ export class CDAPBreakpointManager {
         const newDomainSpecificBreakpoints: DAPExtension.DomainSpecificBreakpoint[] = [];
 
         for (const breakpoint of breakpoints) {
-            const breakpointType: LRP.BreakpointType | undefined = this._availableBreakpointTypes.get(breakpoint.breakpointTypeId);
+            const breakpointType: LRDP.BreakpointType | undefined = this._availableBreakpointTypes.get(breakpoint.breakpointTypeId);
             if (breakpointType === undefined || !isValidBreakpoint(breakpoint, breakpointType)) {
                 res.push(false);
                 continue;
@@ -115,7 +115,7 @@ export class CDAPBreakpointManager {
         return res;
     }
 
-    /** cDAP-compatible representation of available breakpoint types. */
+    /** dpDAP-compatible representation of available breakpoint types. */
     public get availableBreakpointTypes(): DAPExtension.BreakpointType[] {
         return [...this._availableBreakpointTypes.values()];
     }

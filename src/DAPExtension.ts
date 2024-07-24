@@ -1,5 +1,5 @@
 /**
- * Arguments of a cDAP request.
+ * Arguments of a dpDAP request.
  */
 type Arguments = {
     /** Source file targeted by the service call. */
@@ -29,12 +29,12 @@ type SelectedLeaf = Leaf & {
 }
 
 /**
- * Arguments for the 'getBreakpointTypes' cDAP request.
+ * Arguments for the 'getBreakpointTypes' dpDAP request.
 */
 export type GetBreakpointTypesArguments = Arguments;
 
 /**
- * Response to the 'getBreakpointTypes' cDAP request.
+ * Response to the 'getBreakpointTypes' dpDAP request.
  */
 export type GetBreakpointTypesResponse = {
     /** Breakpoint types defined by the language runtime. */
@@ -89,7 +89,7 @@ export type ElementBreakpointParameter = {
 }
 
 /**
- * Arguments for the 'setDomainSpecificBreakpoints' cDAP request.
+ * Arguments for the 'setDomainSpecificBreakpoints' dpDAP request.
 */
 export type SetDomainSpecificBreakpointsArguments = Arguments & {
     /** Domain-specific breakpoints to create. */
@@ -97,7 +97,7 @@ export type SetDomainSpecificBreakpointsArguments = Arguments & {
 }
 
 /**
- * Response to the 'setDomainSpecificBreakpoints' cDAP request.
+ * Response to the 'setDomainSpecificBreakpoints' dpDAP request.
 */
 export type SetDomainSpecificBreakpointsResponse = {
     /** Domain-specific breakpoints to create. */
@@ -128,12 +128,12 @@ export type Entries = {
 }
 
 /**
- * Arguments for the 'getAvailableSteps' cDAP request.
+ * Arguments for the 'getAvailableSteps' dpDAP request.
 */
 export type GetAvailableStepsArguments = Arguments;
 
 /**
- * Response to the 'getAvailableSteps' cDAP request.
+ * Response to the 'getAvailableSteps' dpDAP request.
 */
 export type GetAvailableStepsResponse = {
     /** Currently available steps. */
@@ -141,7 +141,7 @@ export type GetAvailableStepsResponse = {
 }
 
 /**
- * Arguments for the 'selectStep' cDAP request.
+ * Arguments for the 'selectStep' dpDAP request.
 */
 export type SelectStepArguments = Arguments & {
     /** ID of the step to enable. */
@@ -149,7 +149,7 @@ export type SelectStepArguments = Arguments & {
 }
 
 /**
- * Response to the 'selectStep' cDAP request.
+ * Response to the 'selectStep' dpDAP request.
 */
 export type SelectStepResponse = { };
 

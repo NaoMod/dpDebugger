@@ -2,7 +2,7 @@ import { InvalidatedEvent } from "@vscode/debugadapter";
 import { DebugProtocol } from "@vscode/debugprotocol";
 import * as DAPExtension from "./DAPExtension";
 import { CustomDebugRuntime } from "./customDebugRuntime";
-import * as LRP from "./lrp";
+import * as LRDP from "./lrdp";
 
 // TODO: switch type checking methods to instanceof?
 export class CustomRequestHandler {
@@ -98,7 +98,7 @@ export class CustomRequestHandler {
     private getModelElementReferenceFromSource(response: DebugProtocol.Response, args: any): CustomRequestResult {
         if (!this.isGetModelElementReferenceFromSourceArguments(args)) return this.createMalformedArgumentsError('getModelElementReferenceFromSource', args);
 
-        const element: LRP.ModelElement | undefined = this.runtime.getModelElementFromSource(args.line, args.column);
+        const element: LRDP.ModelElement | undefined = this.runtime.getModelElementFromSource(args.line, args.column);
         const res: DAPExtension.GetModelElementReferenceFromSourceResponse = {
             element: element !== undefined ? { id: element.id, types: element.types, label: element.label ?? element.id } : undefined
         }

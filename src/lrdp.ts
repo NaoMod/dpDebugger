@@ -1,5 +1,5 @@
 /**
- * Arguments to a LRP request.
+ * Arguments to a LRDP request.
  */
 type Arguments = {
     /** Source file targeted by the request. */
@@ -7,12 +7,12 @@ type Arguments = {
 }
 
 /**
- * Arguments for the 'parse' LRP request.
+ * Arguments for the 'parse' LRDP request.
 */
 export type ParseArguments = Arguments;
 
 /**
- * Response to the 'parse' LRP request.
+ * Response to the 'parse' LRDP request.
  */
 export type ParseResponse = {
     /** Root of the AST. */
@@ -20,7 +20,7 @@ export type ParseResponse = {
 }
 
 /**
- * Arguments for the 'initializeExecution' LRP request.
+ * Arguments for the 'initializeExecution' LRDP request.
 */
 export type InitializeExecutionArguments = Arguments & {
     /** Arbitrary arguments necessary for the initialization of a runtime state. */
@@ -28,7 +28,7 @@ export type InitializeExecutionArguments = Arguments & {
 }
 
 /**
- * Response to the 'initializeExecution' LRP request.
+ * Response to the 'initializeExecution' LRDP request.
  */
 export type InitializeExecutionResponse = {};
 
@@ -41,7 +41,7 @@ export type Entries = {
 }
 
 /**
- * Response to the 'getBreakpointTypes' LRP request.
+ * Response to the 'getBreakpointTypes' LRDP request.
  */
 export type GetBreakpointTypesResponse = {
     /** Breakpoint types defined by the language runtime. */
@@ -49,7 +49,7 @@ export type GetBreakpointTypesResponse = {
 }
 
 /**
- * Arguments for the 'executeAtomicStep' LRP request.
+ * Arguments for the 'executeAtomicStep' LRDP request.
 */
 export type ExecuteAtomicStepArguments = Arguments & {
     /** Identifier of the atomic step to execute. */
@@ -57,7 +57,7 @@ export type ExecuteAtomicStepArguments = Arguments & {
 }
 
 /**
- * Response to the 'executeAtomicStep' LRP request.
+ * Response to the 'executeAtomicStep' LRDP request.
  */
 export type ExecuteAtomicStepResponse = {
     /** Identifiers of the steps completed after the execution of the atomic step. */
@@ -65,12 +65,12 @@ export type ExecuteAtomicStepResponse = {
 }
 
 /**
- * Arguments for the 'getRuntimeState' LRP request.
+ * Arguments for the 'getRuntimeState' LRDP request.
 */
 export type GetRuntimeStateArguments = Arguments;
 
 /**
- * Response to the 'getRuntimeState' LRP request.
+ * Response to the 'getRuntimeState' LRDP request.
  */
 export type GetRuntimeStateResponse = {
     /** Root of the runtime state. */
@@ -78,7 +78,7 @@ export type GetRuntimeStateResponse = {
 }
 
 /**
- * Arguments for the 'checkBreakpoint' LRP request.
+ * Arguments for the 'checkBreakpoint' LRDP request.
 */
 export type CheckBreakpointArguments = Arguments & {
     /** Identifier of the step on which to check the breakpoint. */
@@ -92,12 +92,12 @@ export type CheckBreakpointArguments = Arguments & {
 }
 
 /**
- * Response to the 'checkBreakpoint' LRP request.
+ * Response to the 'checkBreakpoint' LRDP request.
  */
 export type CheckBreakpointResponse = PositiveCheckBreakpointResponse | NegativeCheckBreakpointResponse;
 
 /**
- * Positive response to the 'checkBreakpoint' LRP request.
+ * Positive response to the 'checkBreakpoint' LRDP request.
  */
 type PositiveCheckBreakpointResponse = {
     /** True if the breakpoint is activated, false otherwise. */
@@ -108,7 +108,7 @@ type PositiveCheckBreakpointResponse = {
 }
 
 /**
- * Negative response to the 'checkBreakpoint' LRP request.
+ * Negative response to the 'checkBreakpoint' LRDP request.
  */
 type NegativeCheckBreakpointResponse = {
     /** True if the breakpoint is activated, false otherwise. */
@@ -224,12 +224,12 @@ export enum PrimitiveType {
 }
 
 /**
- * Arguments for the 'getAvailableSteps' LRP request.
+ * Arguments for the 'getAvailableSteps' LRDP request.
 */
 export type GetAvailableStepsArguments = Arguments;
 
 /**
- * Response to the 'getAvailableSteps' LRP request.
+ * Response to the 'getAvailableSteps' LRDP request.
  */
 export type GetAvailableStepsResponse = {
     /** Currently available steps. */
@@ -237,7 +237,7 @@ export type GetAvailableStepsResponse = {
 }
 
 /**
- * Arguments for the 'enterCompositeStep' LRP request.
+ * Arguments for the 'enterCompositeStep' LRDP request.
 */
 export type EnterCompositeStepArguments = Arguments & {
     /** Identifier of the composite step to enter. */
@@ -245,7 +245,7 @@ export type EnterCompositeStepArguments = Arguments & {
 };
 
 /**
- * Response to the 'enterCompositeStep' LRP request.
+ * Response to the 'enterCompositeStep' LRDP request.
  */
 export type EnterCompositeStepResponse = {};
 
@@ -267,7 +267,7 @@ export type Step = {
 }
 
 /**
- * Arguments for the 'getStepLocation' LRP request.
+ * Arguments for the 'getStepLocation' LRDP request.
 */
 export type GetStepLocationArguments = Arguments & {
     /** Identifier of the step for which to retrieve the location. */
@@ -275,7 +275,7 @@ export type GetStepLocationArguments = Arguments & {
 }
 
 /**
- * Response to the 'getStepLocation' LRP request.
+ * Response to the 'getStepLocation' LRDP request.
  */
 export type GetStepLocationResponse = {
     /** Location of the step. */

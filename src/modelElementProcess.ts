@@ -1,4 +1,4 @@
-import * as LRP from "./lrp";
+import * as LRDP from "./lrdp";
 
 /**
  * Processes a model element and its descendants to retrieve a {@link ProcessedModel}.
@@ -6,7 +6,7 @@ import * as LRP from "./lrp";
  * @param modelRoot Root element to process.
  * @returns The processed model.
  */
-export function processModel(modelRoot: LRP.ModelElement): ProcessedModel {
+export function processModel(modelRoot: LRDP.ModelElement): ProcessedModel {
     return {
         root: modelRoot,
         idToElement: buildIdRegistry(modelRoot),
@@ -22,8 +22,8 @@ export function processModel(modelRoot: LRP.ModelElement): ProcessedModel {
  * root will be added to the registry.
  * @returns The ID registry built from the model root.
  */
-function buildIdRegistry(element: LRP.ModelElement): Map<string, LRP.ModelElement> {
-    let res: Map<string, LRP.ModelElement> = new Map();
+function buildIdRegistry(element: LRDP.ModelElement): Map<string, LRDP.ModelElement> {
+    let res: Map<string, LRDP.ModelElement> = new Map();
     if (element === null) return res;
 
     res.set(element.id, element);
@@ -48,8 +48,8 @@ function buildIdRegistry(element: LRP.ModelElement): Map<string, LRP.ModelElemen
  * root will be added to the registry.
  * @returns The type registry built from the model root.
  */
-function buildTypeRegistry(element: LRP.ModelElement): Map<string, LRP.ModelElement[]> {
-    let res: Map<string, LRP.ModelElement[]> = new Map();
+function buildTypeRegistry(element: LRDP.ModelElement): Map<string, LRDP.ModelElement[]> {
+    let res: Map<string, LRDP.ModelElement[]> = new Map();
     if (element === null) return res;
 
     for (const type of element.types) {
@@ -59,18 +59,18 @@ function buildTypeRegistry(element: LRP.ModelElement): Map<string, LRP.ModelElem
     for (const child of Object.values(element.children)) {
         if (Array.isArray(child)) {
             for (const grandchild of child) {
-                const typeRegistry: Map<string, LRP.ModelElement[]> = buildTypeRegistry(grandchild);
+                const typeRegistry: Map<string, LRDP.ModelElement[]> = buildTypeRegistry(grandchild);
                 for (const entry of typeRegistry.entries()) {
-                    const registeredElements: LRP.ModelElement[] | undefined = res.get(entry[0]);
-                    const newValue: LRP.ModelElement[] = registeredElements === undefined ? entry[1] : [...registeredElements, ...entry[1]];
+                    const registeredElements: LRDP.ModelElement[] | undefined = res.get(entry[0]);
+                    const newValue: LRDP.ModelElement[] = registeredElements === undefined ? entry[1] : [...registeredElements, ...entry[1]];
                     res.set(entry[0], newValue);
                 }
             }
         } else {
-            const typeRegistry: Map<string, LRP.ModelElement[]> = buildTypeRegistry(child);
+            const typeRegistry: Map<string, LRDP.ModelElement[]> = buildTypeRegistry(child);
             for (const entry of typeRegistry.entries()) {
-                const registeredElements: LRP.ModelElement[] | undefined = res.get(entry[0]);
-                const newValue: LRP.ModelElement[] = registeredElements === undefined ? entry[1] : [...registeredElements, ...entry[1]];
+                const registeredElements: LRDP.ModelElement[] | undefined = res.get(entry[0]);
+                const newValue: LRDP.ModelElement[] = registeredElements === undefined ? entry[1] : [...registeredElements, ...entry[1]];
                 res.set(entry[0], newValue);
             }
         }
@@ -85,7 +85,7 @@ function buildTypeRegistry(element: LRP.ModelElement): Map<string, LRP.ModelElem
  * @param element Element from which to search for multivalued references.
  * @returns The set of multivalued references.
  */
-function findMultivaluedRefs(element: LRP.ModelElement): Set<any[]> {
+function findMultivaluedRefs(element: LRDP.ModelElement): Set<any[]> {
     let res: Set<any[]> = new Set();
     if (element == null) return res;
 
@@ -110,8 +110,8 @@ function findMultivaluedRefs(element: LRP.ModelElement): Set<any[]> {
 
 /** Stores information retrieved after the processing of a root model element. */
 export type ProcessedModel = {
-    root: LRP.ModelElement;
-    idToElement: Map<string, LRP.ModelElement>;
-    typeToElements: Map<string, LRP.ModelElement[]>;
+    root: LRDP.ModelElement;
+    idToElement: Map<string, LRDP.ModelElement>;
+    typeToElements: Map<string, LRDP.ModelElement[]>;
     multivaluedRefs: Set<any[]>;
 };

@@ -1,25 +1,25 @@
-import * as LRP from "./lrp";
+import * as LRDP from "./lrdp";
 
 /**
  * Manages execution steps provided by the language runtime.
  */
 export class StepManager {
     /** Currently selected step. */
-    private _selectedStep?: LRP.Step;
+    private _selectedStep?: LRDP.Step;
 
     /** Currently available steps. */
-    public availableSteps: LRP.Step[];
+    public availableSteps: LRDP.Step[];
 
     /** Stack of composite steps currently stepped into. */
-    public stack: LRP.Step[];
+    public stack: LRDP.Step[];
 
     /** Retrieved locations of currently available steps. */
-    public availableStepsLocations: Map<LRP.Step, LRP.Location | null>;
+    public availableStepsLocations: Map<LRDP.Step, LRDP.Location | null>;
 
     /** Locations of composite steps present in the stack. */
-    public stackLocations: Map<LRP.Step, LRP.Location | null>;
+    public stackLocations: Map<LRDP.Step, LRDP.Location | null>;
 
-    constructor(availableSteps: LRP.Step[]) {
+    constructor(availableSteps: LRDP.Step[]) {
         this.availableSteps = availableSteps;
         this._selectedStep = availableSteps.length > 0 ? availableSteps[0] : undefined;
         this.stack = [];
@@ -35,12 +35,12 @@ export class StepManager {
      * @param availableSteps Newly available steps.
      * @param completedSteps Completed steps since the last update.
      */
-    public update(availableSteps: LRP.Step[], completedSteps: string[]): void {
+    public update(availableSteps: LRDP.Step[], completedSteps: string[]): void {
         if (this._selectedStep === undefined) throw new Error('No step is selected.');
 
         // entered composite step
         if (completedSteps.length == 0) {
-            const selectedStepLocation: LRP.Location | null | undefined = this.availableStepsLocations.get(this._selectedStep);
+            const selectedStepLocation: LRDP.Location | null | undefined = this.availableStepsLocations.get(this._selectedStep);
             if (selectedStepLocation === undefined) throw new Error('No location for selected step.');
 
             this.stack.push(this._selectedStep);
@@ -62,13 +62,13 @@ export class StepManager {
      * @param stepId ID of the step to select.
      */
     public selectStep(stepId: string): void {
-        const step: LRP.Step | undefined = this.availableSteps.find(step => step.id === stepId);
+        const step: LRDP.Step | undefined = this.availableSteps.find(step => step.id === stepId);
 
         if (step != undefined) this._selectedStep = step;
     }
 
     /** Currently selected step. */
-    public get selectedStep(): LRP.Step | undefined {
+    public get selectedStep(): LRDP.Step | undefined {
         return this._selectedStep;
     }
 

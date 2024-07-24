@@ -1,5 +1,5 @@
 import { Variable } from "@vscode/debugadapter";
-import * as LRP from "./lrp";
+import * as LRDP from "./lrdp";
 import { ProcessedModel } from "./modelElementProcess";
 
 export const AST_ROOT_VARIABLES_REFERENCE: number = 1;
@@ -83,7 +83,7 @@ export class VariableHandler {
      * @param element Model element for which to retrieve variables.
      * @returns The variables corresponding to the attributes, references and children of the model element.
      */
-    private getVariablesForModelElement(element: LRP.ModelElement): Variable[] {
+    private getVariablesForModelElement(element: LRDP.ModelElement): Variable[] {
         const variables: Variable[] = [];
 
         for (const attribute of Object.entries(element.attributes)) {
@@ -158,7 +158,7 @@ export class VariableHandler {
             return new Variable(name, 'Array[' + ref.length + ']', reference, ref.length);
         }
 
-        let referencedObject: LRP.ModelElement | undefined = this.processedAst.idToElement.get(ref);
+        let referencedObject: LRDP.ModelElement | undefined = this.processedAst.idToElement.get(ref);
         if (referencedObject === undefined) referencedObject = this.processedRuntimeState?.idToElement.get(ref);
         if (referencedObject === undefined) throw new Error('Reference ' + ref + ' is invalid.');
 
@@ -189,7 +189,7 @@ export class VariableHandler {
      * @param object Object to check.
      * @returns True if the object is a model element, false otherwise.
      */
-    private isModelElement(object: any): object is LRP.ModelElement {
+    private isModelElement(object: any): object is LRDP.ModelElement {
         if (object['id'] === undefined) return false;
         if (object['types'] === undefined) return false;
         if (object['attributes'] === undefined) return false;

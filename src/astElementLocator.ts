@@ -1,11 +1,11 @@
-import * as LRP from "./lrp";
+import * as LRDP from "./lrdp";
 
 /**
  * Allows quick retrieval of model elements.
  */
 export class ASTElementLocator {
     /** Map of lines to the AST elements they contain. */
-    private locations: Map<number, LRP.ModelElement[]>;
+    private locations: Map<number, LRDP.ModelElement[]>;
 
     /** Line offset of the IDE. */
     private lineOffset: number;
@@ -19,7 +19,7 @@ export class ASTElementLocator {
         this.columnOffset = -!!(!columnsStartAt1);
     }
 
-    public registerAst(astRoot: LRP.ModelElement): void {
+    public registerAst(astRoot: LRDP.ModelElement): void {
         this.locations = this.registerLocations(astRoot, new Map());
     }
 
@@ -30,12 +30,12 @@ export class ASTElementLocator {
      * @param column Column of the element in the source file.
      * @returns The model element at the given position, or undefined if there is none. 
      */
-    public getElementFromPosition(line: number, column: number): LRP.ModelElement | undefined {
+    public getElementFromPosition(line: number, column: number): LRDP.ModelElement | undefined {
         for (let i = line + this.lineOffset; i >= 0; i--) {
-            const lineElements: LRP.ModelElement[] | undefined = this.locations.get(i);
+            const lineElements: LRDP.ModelElement[] | undefined = this.locations.get(i);
             if (!lineElements) continue;
 
-            const elem: LRP.ModelElement | undefined = lineElements.find(elem => this.isPositionContained(elem, line + this.lineOffset, column + this.columnOffset));
+            const elem: LRDP.ModelElement | undefined = lineElements.find(elem => this.isPositionContained(elem, line + this.lineOffset, column + this.columnOffset));
             if (elem) return elem;
         }
 
@@ -47,11 +47,11 @@ export class ASTElementLocator {
      * 
      * @param element Element to register.
      */
-    private registerLocations(element: LRP.ModelElement, locations: Map<number, LRP.ModelElement[]>): Map<number, LRP.ModelElement[]> {
-        let res: Map<number, LRP.ModelElement[]> = new Map(locations);
+    private registerLocations(element: LRDP.ModelElement, locations: Map<number, LRDP.ModelElement[]>): Map<number, LRDP.ModelElement[]> {
+        let res: Map<number, LRDP.ModelElement[]> = new Map(locations);
 
         if (element.location) {
-            const lineElements: LRP.ModelElement[] | undefined = res.get(element.location.line);
+            const lineElements: LRDP.ModelElement[] | undefined = res.get(element.location.line);
             if (lineElements === undefined) {
                 res.set(element.location.line, [element]);
             } else {
@@ -80,7 +80,7 @@ export class ASTElementLocator {
      * @param column Column of the position.
      * @returns True if the position is contained, false otherwise.
      */
-    private isPositionContained(element: LRP.ModelElement, line: number, column: number): boolean {
+    private isPositionContained(element: LRDP.ModelElement, line: number, column: number): boolean {
         if (element.location!.line == line)
             return element.location!.endLine == line ? element.location!.column <= column && element.location!.endColumn >= column : element.location!.column <= column;
 

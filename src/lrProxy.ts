@@ -1,5 +1,5 @@
 import { Client, RequestParamsLike } from "jayson";
-import * as LRP from "./lrp";
+import * as LRDP from "./lrdp";
 
 /**
  * Proxy for a JSON-RPC server.
@@ -43,16 +43,16 @@ class Proxy {
 
 
 /**
- * Proxy for a language runtime implementing LRP.
+ * Proxy for a language runtime implementing LRDP.
  */
 export class LanguageRuntimeProxy extends Proxy {
     /**
      * Asks the language runtime to parse a program and store its AST.
      * 
      * @param args Arguments of the request.
-     * @returns The LRP response to the request.
+     * @returns The LRDP response to the request.
      */
-    public async parse(args: LRP.ParseArguments): Promise<LRP.ParseResponse> {
+    public async parse(args: LRDP.ParseArguments): Promise<LRDP.ParseResponse> {
         return this.request('parse', [args]);
     }
 
@@ -61,9 +61,9 @@ export class LanguageRuntimeProxy extends Proxy {
      * The AST for the given source file must have been previously constructed through the {@link parse} service.
      * 
      * @param args Arguments of the request.
-     * @returns The LRP response to the request.
+     * @returns The LRDP response to the request.
      */
-    public async initializeExecution(args: LRP.InitializeExecutionArguments): Promise<LRP.InitializeExecutionResponse> {
+    public async initializeExecution(args: LRDP.InitializeExecutionArguments): Promise<LRDP.InitializeExecutionResponse> {
         return this.request('initializeExecution', [args]);
     }
 
@@ -71,18 +71,18 @@ export class LanguageRuntimeProxy extends Proxy {
      * Asks the language runtime to return the current runtime state for the given source file.
      * 
      * @param args Arguments of the request.
-     * @returns The LRP response to the request.
+     * @returns The LRDP response to the request.
      */
-    public async getRuntimeState(args: LRP.GetRuntimeStateArguments): Promise<LRP.GetRuntimeStateResponse> {
+    public async getRuntimeState(args: LRDP.GetRuntimeStateArguments): Promise<LRDP.GetRuntimeStateResponse> {
         return this.request('getRuntimeState', [args]);
     }
 
     /**
      * Asks the language runtime to return the available breakpoint types it defines.
      * 
-     * @returns The LRP response to the request.
+     * @returns The LRDP response to the request.
      */
-    public async getBreakpointTypes(): Promise<LRP.GetBreakpointTypesResponse> {
+    public async getBreakpointTypes(): Promise<LRDP.GetBreakpointTypesResponse> {
         return this.request('getBreakpointTypes', []);
     }
 
@@ -91,9 +91,9 @@ export class LanguageRuntimeProxy extends Proxy {
      * in the runtime state associated to the given source file.
      * 
      * @param args Arguments of the request.
-     * @returns The LRP response to the request.
+     * @returns The LRDP response to the request.
      */
-    public async checkBreakpoint(args: LRP.CheckBreakpointArguments): Promise<LRP.CheckBreakpointResponse> {
+    public async checkBreakpoint(args: LRDP.CheckBreakpointArguments): Promise<LRDP.CheckBreakpointResponse> {
         return this.request('checkBreakpoint', [args]);
     }
 
@@ -101,9 +101,9 @@ export class LanguageRuntimeProxy extends Proxy {
      * Asks the language runtime to return the currently available steps.
      * 
      * @param args Arguments of the request.
-     * @returns The LRP response to the request.
+     * @returns The LRDP response to the request.
      */
-    public async getAvailableSteps(args: LRP.GetAvailableStepsArguments): Promise<LRP.GetAvailableStepsResponse> {
+    public async getAvailableSteps(args: LRDP.GetAvailableStepsArguments): Promise<LRDP.GetAvailableStepsResponse> {
         return this.request('getAvailableSteps', [args]);
     }
 
@@ -112,9 +112,9 @@ export class LanguageRuntimeProxy extends Proxy {
      * The possible steps are exposed by the language runtime through the {@link getAvailableSteps} service.
      * 
      * @param args Arguments of the request.
-     * @returns The LRP response to the request.
+     * @returns The LRDP response to the request.
      */
-    public async enterCompositeStep(args: LRP.EnterCompositeStepArguments): Promise<LRP.EnterCompositeStepResponse> {
+    public async enterCompositeStep(args: LRDP.EnterCompositeStepArguments): Promise<LRDP.EnterCompositeStepResponse> {
         return this.request('enterCompositeStep', [args]);
     }
 
@@ -123,9 +123,9 @@ export class LanguageRuntimeProxy extends Proxy {
      * The possible steps are exposed by the language runtime through the {@link getAvailableSteps} service.
      * 
      * @param args Arguments of the request.
-     * @returns The LRP response to the request.
+     * @returns The LRDP response to the request.
      */
-    public async executeAtomicStep(args: LRP.ExecuteAtomicStepArguments): Promise<LRP.ExecuteAtomicStepResponse> {
+    public async executeAtomicStep(args: LRDP.ExecuteAtomicStepArguments): Promise<LRDP.ExecuteAtomicStepResponse> {
         return this.request('executeAtomicStep', [args]);
     }
 
@@ -134,9 +134,9 @@ export class LanguageRuntimeProxy extends Proxy {
      * The possible steps are exposed by the language runtime through the {@link getAvailableSteps} service.
      * 
      * @param args Arguments of the request.
-     * @returns The LRP response to the request.
+     * @returns The LRDP response to the request.
      */
-    public async getStepLocation(args: LRP.GetStepLocationArguments): Promise<LRP.GetStepLocationResponse> {
+    public async getStepLocation(args: LRDP.GetStepLocationArguments): Promise<LRDP.GetStepLocationResponse> {
         return this.request('getStepLocation', [args]);
     }
 }

@@ -1,7 +1,7 @@
 import * as DAPExtension from "./DAPExtension";
-import * as LRP from "./lrp";
+import * as LRDP from "./lrdp";
 
-export function isValidBreakpoint(breakpoint: DAPExtension.DomainSpecificBreakpoint, breakpointType: LRP.BreakpointType): boolean {
+export function isValidBreakpoint(breakpoint: DAPExtension.DomainSpecificBreakpoint, breakpointType: LRDP.BreakpointType): boolean {
     const entries: [string, unknown][] = Object.entries(breakpoint.entries);
     if (entries.length !== breakpointType.parameters.length) return false;
 
@@ -13,11 +13,11 @@ export function isValidBreakpoint(breakpoint: DAPExtension.DomainSpecificBreakpo
     return true;
 }
 
-function isValidEntry(entry: [string, unknown], parameter: LRP.BreakpointParameter): boolean {
+function isValidEntry(entry: [string, unknown], parameter: LRDP.BreakpointParameter): boolean {
     return parameter.isMultivalued ? handleMultivaluedEntry(entry, parameter) : handleSinglevaluedEntry(entry, parameter);
 }
 
-function handleMultivaluedEntry(entry: [string, unknown], parameter: LRP.BreakpointParameter): boolean {
+function handleMultivaluedEntry(entry: [string, unknown], parameter: LRDP.BreakpointParameter): boolean {
     if (!Array.isArray(entry[1])) return false;
 
     if (parameter.type === 'element') return entry[1].every((element): element is string => typeof element === "string");
@@ -34,7 +34,7 @@ function handleMultivaluedEntry(entry: [string, unknown], parameter: LRP.Breakpo
     }
 }
 
-function handleSinglevaluedEntry(entry: [string, unknown], parameter: LRP.BreakpointParameter): boolean {
+function handleSinglevaluedEntry(entry: [string, unknown], parameter: LRDP.BreakpointParameter): boolean {
     if (parameter.type === 'element') return typeof entry[1] === "string";
 
     switch (parameter.primitiveType) {

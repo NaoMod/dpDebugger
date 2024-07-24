@@ -2,7 +2,7 @@ import { Breakpoint, DebugSession, InitializedEvent, Response, Scope, Source, St
 import { DebugProtocol } from "@vscode/debugprotocol";
 import { CustomDebugRuntime, InitializationParams } from "./customDebugRuntime";
 import { CustomRequestHandler, CustomRequestResult } from "./customRequestHandler";
-import * as LRP from "./lrp";
+import * as LRDP from "./lrdp";
 import { AST_ROOT_VARIABLES_REFERENCE, RUNTIME_STATE_ROOT_VARIABLES_REFERENCE } from "./variableHandler";
 
 
@@ -370,8 +370,8 @@ export class CustomDebugSession extends DebugSession {
      * @param request 
      */
     protected async stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
-        const stack: LRP.Step[] = this.runtime.stack;
-        const stackLocations: Map<LRP.Step, LRP.Location | null> = this.runtime.stackLocations;
+        const stack: LRDP.Step[] = this.runtime.stack;
+        const stackLocations: Map<LRDP.Step, LRDP.Location | null> = this.runtime.stackLocations;
         const stackFrames: StackFrame[] = [];
         const startFrame: number = args.startFrame !== undefined ? args.startFrame : 0;
         const levels: number = args.levels !== undefined && args.levels <= stack.length ? args.levels : stack.length + 1;
@@ -381,7 +381,7 @@ export class CustomDebugSession extends DebugSession {
 
             // Produce root frame
             if (i === stack.length) {
-                const location: LRP.Location | null | undefined = stack.length === 0 ? await this.runtime.getSelectedStepLocation() : stackLocations.get(stack[0]);
+                const location: LRDP.Location | null | undefined = stack.length === 0 ? await this.runtime.getSelectedStepLocation() : stackLocations.get(stack[0]);
                 if (location === undefined) throw new Error('Undefined location for stack step.');
 
                 stackFrames.push({
@@ -399,7 +399,7 @@ export class CustomDebugSession extends DebugSession {
             }
 
             // Produce frame for a composite step
-            const location: LRP.Location | null | undefined = i === 0 ? await this.runtime.getSelectedStepLocation() : stackLocations.get(stack[stack.length - i]);
+            const location: LRDP.Location | null | undefined = i === 0 ? await this.runtime.getSelectedStepLocation() : stackLocations.get(stack[stack.length - i]);
             if (location === undefined) throw new Error('Undefined location for stack step.');
 
             stackFrames.push({
@@ -458,7 +458,7 @@ export class CustomDebugSession extends DebugSession {
     }
 
     /**
-     * Handles cDAP services that are not originally present in DAP.
+     * Handles dpDAP services that are not originally present in DAP.
      * 
      * @param command 
      * @param response 

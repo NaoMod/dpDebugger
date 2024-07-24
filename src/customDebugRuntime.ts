@@ -2,10 +2,10 @@ import { Variable } from "@vscode/debugadapter";
 import { DebugProtocol } from "@vscode/debugprotocol";
 import * as DAPExtension from "./DAPExtension";
 import { ASTElementLocator } from "./astElementLocator";
-import { ActivatedBreakpoint, CDAPBreakpointManager } from "./breakpointManager";
+import { ActivatedBreakpoint, DPDAPBreakpointManager } from "./breakpointManager";
 import { CustomDebugSession } from "./customDebugSession";
 import { LanguageRuntimeProxy } from "./lrProxy";
-import * as LRP from "./lrp";
+import * as LRDP from "./lrdp";
 import { ProcessedModel, processModel } from "./modelElementProcess";
 import { ModelElementTypeRegistry } from "./modelElementRegistry";
 import { StepManager } from "./stepManager";
@@ -28,7 +28,7 @@ export class CustomDebugRuntime {
     readonly lrProxy: LanguageRuntimeProxy;
 
     /** Facility responsible for breakpoint management for this debug runtime. */
-    private _breakpointManager: CDAPBreakpointManager;
+    private _breakpointManager: DPDAPBreakpointManager;
 
     /** Facility responsible for step management for this debug runtime. */
     private _stepManager: StepManager;
@@ -78,20 +78,20 @@ export class CustomDebugRuntime {
      * @param additionalArgs Additional arguments necessary to initialize the execution.
      */
     public async initializeExecution(pauseOnStart: boolean, additionalArgs?: any): Promise<boolean> {
-        const parseResponse: LRP.ParseResponse = await this.lrProxy.parse({ sourceFile: this._sourceFile });
+        const parseResponse: LRDP.ParseResponse = await this.lrProxy.parse({ sourceFile: this._sourceFile });
         await this.lrProxy.initializeExecution({ sourceFile: this._sourceFile, entries: { ...additionalArgs } });
         const processedAst: ProcessedModel = processModel(parseResponse.astRoot);
 
-        const getBreakpointTypes: LRP.GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
+        const getBreakpointTypes: LRDP.GetBreakpointTypesResponse = await this.lrProxy.getBreakpointTypes();
 
         this.astElementLocator.registerAst(processedAst.root);
         this.modelElementTypeRegistry.registerAstElements(processedAst.typeToElements);
         this.variableHandler = new VariableHandler(processedAst);
 
-        this._breakpointManager = new CDAPBreakpointManager(this._sourceFile, this.astElementLocator, getBreakpointTypes.breakpointTypes, this.lrProxy);
+        this._breakpointManager = new DPDAPBreakpointManager(this._sourceFile, this.astElementLocator, getBreakpointTypes.breakpointTypes, this.lrProxy);
         if (this.initialBreakpointsRequest !== null) this.initialBreakpointsRequest.resolve(this._breakpointManager);
 
-        const getAvailableStepsResponse: LRP.GetAvailableStepsResponse = await this.lrProxy.getAvailableSteps({ sourceFile: this._sourceFile });
+        const getAvailableStepsResponse: LRDP.GetAvailableStepsResponse = await this.lrProxy.getAvailableSteps({ sourceFile: this._sourceFile });
 
         this._stepManager = new StepManager(getAvailableStepsResponse.availableSteps);
         this._isExecutionDone = this._stepManager.availableSteps.length == 0;
@@ -123,7 +123,7 @@ export class CustomDebugRuntime {
         // single step scenario
         this.pausedOnNonDeterminism = false;
         this._terminatedEventSent = false;
-        const step: LRP.Step | undefined = this._stepManager.selectedStep;
+        const step: LRDP.Step | undefined = this._stepManager.selectedStep;
         if (step === undefined) throw new NoSelectedStepError();
         const activatedBreakpoints: ActivatedBreakpoint[] = await this._breakpointManager.checkBreakpoints(step.id);
 
@@ -175,7 +175,7 @@ export class CustomDebugRuntime {
 
         this.pauseRequired = false;
 
-        const targetStep: LRP.Step = this._stepManager.selectedStep;
+        const targetStep: LRDP.Step = this._stepManager.selectedStep;
         await this._run(targetStep);
     }
 
@@ -193,13 +193,14 @@ export class CustomDebugRuntime {
         if (!this._sourceFile) throw new Error('No sources loaded.');
         if (this.checkExecutionDone()) return;
 
-        const selectedStep: LRP.Step | undefined = this._stepManager.selectedStep;
+        const selectedStep: LRDP.Step | undefined = this._stepManager.selectedStep;
         if (selectedStep === undefined) throw new NoSelectedStepError();
 
         // Check breakpoints BEFORE step
         if (this.pausedOnNonDeterminism) {
-            const activatedBreakpoints: ActivatedBreakpoint[] = this.pausedOnNonDeterminism ? await this._breakpointManager.checkBreakpoints(selectedStep.id) : [];
+            const activatedBreakpoints: ActivatedBreakpoint[] = await this._breakpointManager.checkBreakpoints(selectedStep.id);
             if (activatedBreakpoints.length > 0) {
+                this.pausedOnNonDeterminism = false;
                 this.stop('breakpoint', activatedBreakpoints.map(b => b.message).join('\n'));
                 return;
             }
@@ -251,7 +252,7 @@ export class CustomDebugRuntime {
             return;
         }
 
-        const parentStep: LRP.Step = this._stepManager.stack[this._stepManager.stack.length - 1];
+        const parentStep: LRDP.Step = this._stepManager.stack[this._stepManager.stack.length - 1];
         await this._run(parentStep);
     }
 
@@ -276,7 +277,7 @@ export class CustomDebugRuntime {
      * Should only be called after {@link initializeExecution} has been called.
      */
     public async updateRuntimeState(): Promise<void> {
-        const getRuntimeStateResponse: LRP.GetRuntimeStateResponse = await this.lrProxy.getRuntimeState({ sourceFile: this._sourceFile });
+        const getRuntimeStateResponse: LRDP.GetRuntimeStateResponse = await this.lrProxy.getRuntimeState({ sourceFile: this._sourceFile });
         const processedRuntimeState: ProcessedModel = processModel(getRuntimeStateResponse.runtimeStateRoot);
         this.modelElementTypeRegistry.registerRuntimeStateElements(processedRuntimeState.typeToElements);
         this.variableHandler.updateRuntime(processedRuntimeState);
@@ -305,15 +306,15 @@ export class CustomDebugRuntime {
      * @returns The location of the currently selected step, or null if it has no location.
      * @throws {NoSelectedStepError} If no step is selected.
      */
-    public async getSelectedStepLocation(): Promise<LRP.Location | null> {
+    public async getSelectedStepLocation(): Promise<LRDP.Location | null> {
         if (this._isExecutionDone) return null;
         if (this._stepManager.selectedStep == undefined) throw new NoSelectedStepError();
 
-        let location: LRP.Location | null | undefined = this._stepManager.availableStepsLocations.get(this._stepManager.selectedStep);
+        let location: LRDP.Location | null | undefined = this._stepManager.availableStepsLocations.get(this._stepManager.selectedStep);
 
         if (location !== undefined) return location;
 
-        const response: LRP.GetStepLocationResponse = await this.lrProxy.getStepLocation({
+        const response: LRDP.GetStepLocationResponse = await this.lrProxy.getStepLocation({
             sourceFile: this._sourceFile,
             stepId: this._stepManager.selectedStep.id
         });
@@ -363,11 +364,11 @@ export class CustomDebugRuntime {
         });
     }
 
-    public getModelElementsFromType(type: string): LRP.ModelElement[] {
+    public getModelElementsFromType(type: string): LRDP.ModelElement[] {
         return this.modelElementTypeRegistry.getModelElementsFromType(type);
     }
 
-    public getModelElementFromSource(line: number, column: number): LRP.ModelElement | undefined {
+    public getModelElementFromSource(line: number, column: number): LRDP.ModelElement | undefined {
         return this.astElementLocator.getElementFromPosition(line, column);
     }
 
@@ -379,7 +380,7 @@ export class CustomDebugRuntime {
         return this._isExecutionDone;
     }
 
-    public get breakpointManager(): CDAPBreakpointManager {
+    public get breakpointManager(): DPDAPBreakpointManager {
         return this._breakpointManager;
     }
 
@@ -387,11 +388,11 @@ export class CustomDebugRuntime {
         return this._terminatedEventSent;
     }
 
-    public get stack(): LRP.Step[] {
+    public get stack(): LRDP.Step[] {
         return this._stepManager.stack;
     }
 
-    public get stackLocations(): Map<LRP.Step, LRP.Location | null> {
+    public get stackLocations(): Map<LRDP.Step, LRDP.Location | null> {
         return this._stepManager.stackLocations;
     }
 
@@ -404,17 +405,18 @@ export class CustomDebugRuntime {
      * 
      * @throws {NoSelectedStepError} If no step is selected.
      */
-    private async _run(targetStep?: LRP.Step): Promise<void> {
+    private async _run(targetStep?: LRDP.Step): Promise<void> {
         let completedSteps: string[] = [];
 
         while (!this._isExecutionDone && (targetStep === undefined || !completedSteps.includes(targetStep.id))) {
-            let currentStep: LRP.Step | undefined = this._stepManager.selectedStep;
+            let currentStep: LRDP.Step | undefined = this._stepManager.selectedStep;
             if (currentStep == undefined) throw new NoSelectedStepError();
 
             // Check breakpoints BEFORE step
             if (this.pausedOnNonDeterminism) {
-                const activatedBreakpoints: ActivatedBreakpoint[] = this.pausedOnNonDeterminism ? await this._breakpointManager.checkBreakpoints(currentStep.id) : [];
+                const activatedBreakpoints: ActivatedBreakpoint[] = await this._breakpointManager.checkBreakpoints(currentStep.id);
                 if (activatedBreakpoints.length > 0) {
+                    this.pausedOnNonDeterminism = false;
                     this.stop('breakpoint', activatedBreakpoints.map(b => b.message).join('\n'));
                     return;
                 }
@@ -456,8 +458,8 @@ export class CustomDebugRuntime {
      * @throws {NonDeterminismError} If a non-deterministic situation occurs before an atomic step is reached.
      * @throws {NoSelectedStepError} If no step is automatically selected.
      */
-    private async findNextAtomicStep(step: LRP.Step): Promise<NextAtomicStepSearchResult> {
-        let currentStep: LRP.Step | undefined = step;
+    private async findNextAtomicStep(step: LRDP.Step): Promise<NextAtomicStepSearchResult> {
+        let currentStep: LRDP.Step | undefined = step;
 
         while (currentStep.isComposite) {
             const pauseInformation: PauseInformation | undefined = await this.enterCompositeStep(currentStep);
@@ -485,10 +487,10 @@ export class CustomDebugRuntime {
      * @throws {StepNotCompositeError} If the step is not composite.
      * @throws {ActivatedBreakpointError} If a breakpoint is activated before entering the step.
      */
-    private async enterCompositeStep(step: LRP.Step): Promise<PauseInformation | undefined> {
+    private async enterCompositeStep(step: LRDP.Step): Promise<PauseInformation | undefined> {
         if (!step.isComposite) throw new StepNotCompositeError(step);
 
-        const enterCompositeStepArguments: LRP.EnterCompositeStepArguments = {
+        const enterCompositeStepArguments: LRDP.EnterCompositeStepArguments = {
             sourceFile: this._sourceFile,
             stepId: step.id
         }
@@ -508,10 +510,10 @@ export class CustomDebugRuntime {
      * @throws {StepNotAtomicError} If the step is not atomic.
      * @throws {ActivatedBreakpointError} If a breakpoint is activated before executing the step.
      */
-    private async executeAtomicStep(step: LRP.Step): Promise<AtomicStepExecutionResult> {
+    private async executeAtomicStep(step: LRDP.Step): Promise<AtomicStepExecutionResult> {
         if (step.isComposite) throw new StepNotAtomicError(step);
 
-        const executeAtomicStepArguments: LRP.ExecuteAtomicStepArguments = {
+        const executeAtomicStepArguments: LRDP.ExecuteAtomicStepArguments = {
             sourceFile: this._sourceFile,
             stepId: step.id
         };
@@ -537,7 +539,7 @@ export class CustomDebugRuntime {
         if (this._isExecutionDone && this.pauseOnEnd) pauseInformation.addReason('end');
 
         if (!this._isExecutionDone) {
-            const step: LRP.Step | undefined = this._stepManager.selectedStep;
+            const step: LRDP.Step | undefined = this._stepManager.selectedStep;
             if (step === undefined) throw new NoSelectedStepError();
     
             const activatedBreakpoints: ActivatedBreakpoint[] = await this._breakpointManager.checkBreakpoints(step.id);
@@ -557,7 +559,7 @@ export class CustomDebugRuntime {
      * @param completedSteps List of IDs of steps that were completed after performing the last atomic step.
      */
     private async updateAvailableSteps(completedSteps: string[]): Promise<void> {
-        const stepsArgs: LRP.GetAvailableStepsArguments = {
+        const stepsArgs: LRDP.GetAvailableStepsArguments = {
             sourceFile: this._sourceFile
         }
 
@@ -623,7 +625,7 @@ class InitializationStatus {
 class InitialBreakpointsRequest {
     constructor(private sourceBreakpoints: DebugProtocol.SourceBreakpoint[], private resolveFunc: ((x: DebugProtocol.Breakpoint[]) => void)) { }
 
-    public resolve(breakpointManager: CDAPBreakpointManager): void {
+    public resolve(breakpointManager: DPDAPBreakpointManager): void {
         this.resolveFunc(breakpointManager.setBreakpoints(this.sourceBreakpoints));
     }
 }
@@ -670,7 +672,7 @@ type NextAtomicStepSearchResult = SuccessfulNextAtomicStepSearchResult | FailedN
 
 type SuccessfulNextAtomicStepSearchResult = {
     status: 'success';
-    step: LRP.Step;
+    step: LRDP.Step;
     pauseInformation?: PauseInformation;
 }
 
@@ -707,9 +709,9 @@ class TerminationEventSentError implements Error {
 class StepNotCompositeError implements Error {
     name: string;
     message: string;
-    step: LRP.Step;
+    step: LRDP.Step;
 
-    constructor(step: LRP.Step) {
+    constructor(step: LRDP.Step) {
         this.name = 'StepNotCompositeError';
         this.message = `Step '${step.name}' is not composite.`
         this.step = step;
@@ -719,9 +721,9 @@ class StepNotCompositeError implements Error {
 class StepNotAtomicError implements Error {
     name: string;
     message: string;
-    step: LRP.Step;
+    step: LRDP.Step;
 
-    constructor(step: LRP.Step) {
+    constructor(step: LRDP.Step) {
         this.name = 'StepNotAtomicError';
         this.message = `Step '${step.name}' is not atomic.`
         this.step = step;
