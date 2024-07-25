@@ -1,0 +1,543 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "BreakpointParameter": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/PrimitiveBreakpointParameter"
+        },
+        {
+          "$ref": "#/definitions/ElementBreakpointParameter"
+        }
+      ],
+      "description": "Parameter required by a breakpoint type."
+    },
+    "BreakpointType": {
+      "additionalProperties": false,
+      "description": "Breakpoint type defined by the language runtime.",
+      "properties": {
+        "description": {
+          "description": "Human-readable description of the breakpoint type.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unique identifier of the breakpoint type.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Human-readable name of the breakpoint type.",
+          "type": "string"
+        },
+        "parameters": {
+          "description": "Parameters needed to evaluate a breakpoint of this type.",
+          "items": {
+            "$ref": "#/definitions/BreakpointParameter"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "parameters"
+      ],
+      "type": "object"
+    },
+    "CheckBreakpointArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'checkBreakpoint' LRDP request.",
+      "properties": {
+        "entries": {
+          "$ref": "#/definitions/Entries",
+          "description": "Arbitrary arguments required to check the breakpoint."
+        },
+        "sourceFile": {
+          "description": "Source file targeted by the request.",
+          "type": "string"
+        },
+        "stepId": {
+          "description": "Identifier of the step on which to check the breakpoint.",
+          "type": "string"
+        },
+        "typeId": {
+          "description": "Identifier of the breakpoint type.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entries",
+        "sourceFile",
+        "stepId",
+        "typeId"
+      ],
+      "type": "object"
+    },
+    "CheckBreakpointResponse": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "description": "Positive response to the 'checkBreakpoint' LRDP request.",
+          "properties": {
+            "isActivated": {
+              "const": true,
+              "description": "True if the breakpoint is activated, false otherwise.",
+              "type": "boolean"
+            },
+            "message": {
+              "description": "Human-readable message to describe the cause of activation.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "isActivated",
+            "message"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Negative response to the 'checkBreakpoint' LRDP request.",
+          "properties": {
+            "isActivated": {
+              "const": false,
+              "description": "True if the breakpoint is activated, false otherwise.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "isActivated"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Response to the 'checkBreakpoint' LRDP request."
+    },
+    "ElementBreakpointParameter": {
+      "additionalProperties": false,
+      "description": "Reference breakpoint parameter.",
+      "properties": {
+        "elementType": {
+          "description": "Type of the target model element, as defined in  {@link  ModelElement.types } .",
+          "type": "string"
+        },
+        "isMultivalued": {
+          "description": "True is the parameter is a collection, false otherwise.",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Name of the parameter.",
+          "type": "string"
+        },
+        "type": {
+          "const": "element",
+          "description": "Type of the parameter.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "name",
+        "isMultivalued",
+        "elementType"
+      ],
+      "type": "object"
+    },
+    "EnterCompositeStepArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'enterCompositeStep' LRDP request.",
+      "properties": {
+        "sourceFile": {
+          "description": "Source file targeted by the request.",
+          "type": "string"
+        },
+        "stepId": {
+          "description": "Identifier of the composite step to enter.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceFile",
+        "stepId"
+      ],
+      "type": "object"
+    },
+    "EnterCompositeStepResponse": {
+      "additionalProperties": false,
+      "description": "Response to the 'enterCompositeStep' LRDP request.",
+      "type": "object"
+    },
+    "Entries": {
+      "additionalProperties": {
+        "description": "Properties with arbitrary key and value."
+      },
+      "description": "Arbitrary entries.",
+      "type": "object"
+    },
+    "ExecuteAtomicStepArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'executeAtomicStep' LRDP request.",
+      "properties": {
+        "sourceFile": {
+          "description": "Source file targeted by the request.",
+          "type": "string"
+        },
+        "stepId": {
+          "description": "Identifier of the atomic step to execute.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceFile",
+        "stepId"
+      ],
+      "type": "object"
+    },
+    "ExecuteAtomicStepResponse": {
+      "additionalProperties": false,
+      "description": "Response to the 'executeAtomicStep' LRDP request.",
+      "properties": {
+        "completedSteps": {
+          "description": "Identifiers of the steps completed after the execution of the atomic step.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "completedSteps"
+      ],
+      "type": "object"
+    },
+    "GetAvailableStepsArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'getAvailableSteps' LRDP request.",
+      "properties": {
+        "sourceFile": {
+          "description": "Source file targeted by the request.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceFile"
+      ],
+      "type": "object"
+    },
+    "GetAvailableStepsResponse": {
+      "additionalProperties": false,
+      "description": "Response to the 'getAvailableSteps' LRDP request.",
+      "properties": {
+        "availableSteps": {
+          "description": "Currently available steps.",
+          "items": {
+            "$ref": "#/definitions/Step"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "availableSteps"
+      ],
+      "type": "object"
+    },
+    "GetBreakpointTypesResponse": {
+      "additionalProperties": false,
+      "description": "Response to the 'getBreakpointTypes' LRDP request.",
+      "properties": {
+        "breakpointTypes": {
+          "description": "Breakpoint types defined by the language runtime.",
+          "items": {
+            "$ref": "#/definitions/BreakpointType"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "breakpointTypes"
+      ],
+      "type": "object"
+    },
+    "GetRuntimeStateArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'getRuntimeState' LRDP request.",
+      "properties": {
+        "sourceFile": {
+          "description": "Source file targeted by the request.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceFile"
+      ],
+      "type": "object"
+    },
+    "GetRuntimeStateResponse": {
+      "additionalProperties": false,
+      "description": "Response to the 'getRuntimeState' LRDP request.",
+      "properties": {
+        "runtimeStateRoot": {
+          "$ref": "#/definitions/ModelElement",
+          "description": "Root of the runtime state."
+        }
+      },
+      "required": [
+        "runtimeStateRoot"
+      ],
+      "type": "object"
+    },
+    "GetStepLocationArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'getStepLocation' LRDP request.",
+      "properties": {
+        "sourceFile": {
+          "description": "Source file targeted by the request.",
+          "type": "string"
+        },
+        "stepId": {
+          "description": "Identifier of the step for which to retrieve the location.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceFile",
+        "stepId"
+      ],
+      "type": "object"
+    },
+    "GetStepLocationResponse": {
+      "additionalProperties": false,
+      "description": "Response to the 'getStepLocation' LRDP request.",
+      "properties": {
+        "location": {
+          "$ref": "#/definitions/Location",
+          "description": "Location of the step."
+        }
+      },
+      "type": "object"
+    },
+    "InitializeExecutionArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'initializeExecution' LRDP request.",
+      "properties": {
+        "entries": {
+          "$ref": "#/definitions/Entries",
+          "description": "Arbitrary arguments necessary for the initialization of a runtime state."
+        },
+        "sourceFile": {
+          "description": "Source file targeted by the request.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entries",
+        "sourceFile"
+      ],
+      "type": "object"
+    },
+    "InitializeExecutionResponse": {
+      "additionalProperties": false,
+      "description": "Response to the 'initializeExecution' LRDP request.",
+      "type": "object"
+    },
+    "Location": {
+      "additionalProperties": false,
+      "description": "Location in a textual source file.",
+      "properties": {
+        "column": {
+          "description": "Starting column.",
+          "type": "number"
+        },
+        "endColumn": {
+          "description": "End column.",
+          "type": "number"
+        },
+        "endLine": {
+          "description": "End line.",
+          "type": "number"
+        },
+        "line": {
+          "description": "Starting line.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "line",
+        "column",
+        "endLine",
+        "endColumn"
+      ],
+      "type": "object"
+    },
+    "ModelElement": {
+      "additionalProperties": false,
+      "description": "Element of the AST or runtime state.",
+      "properties": {
+        "attributes": {
+          "description": "Attributes with primitive values.",
+          "type": "object"
+        },
+        "children": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/ModelElement"
+              },
+              {
+                "items": {
+                  "$ref": "#/definitions/ModelElement"
+                },
+                "type": "array"
+              }
+            ]
+          },
+          "description": "Containment relations with other elements.",
+          "type": "object"
+        },
+        "id": {
+          "description": "Unique identifier of the element.",
+          "type": "string"
+        },
+        "label": {
+          "description": "Textual representation of the element.",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/definitions/Location",
+          "description": "Location of the element in its original source file."
+        },
+        "refs": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ]
+          },
+          "description": "References to other elements.",
+          "type": "object"
+        },
+        "types": {
+          "description": "Types of the element. At least one type must be specified.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "types",
+        "children",
+        "refs",
+        "attributes"
+      ],
+      "type": "object"
+    },
+    "ParseArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'parse' LRDP request.",
+      "properties": {
+        "sourceFile": {
+          "description": "Source file targeted by the request.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceFile"
+      ],
+      "type": "object"
+    },
+    "ParseResponse": {
+      "additionalProperties": false,
+      "description": "Response to the 'parse' LRDP request.",
+      "properties": {
+        "astRoot": {
+          "$ref": "#/definitions/ModelElement",
+          "description": "Root of the AST."
+        }
+      },
+      "required": [
+        "astRoot"
+      ],
+      "type": "object"
+    },
+    "PrimitiveBreakpointParameter": {
+      "additionalProperties": false,
+      "description": "Primitive breakpoint parameter.",
+      "properties": {
+        "isMultivalued": {
+          "description": "True is the parameter is a collection, false otherwise.",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Name of the parameter.",
+          "type": "string"
+        },
+        "primitiveType": {
+          "description": "Primitive type of the primitive parameter.",
+          "enum": [
+            "boolean",
+            "number",
+            "string"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "primitive",
+          "description": "Type of the parameter.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "name",
+        "isMultivalued",
+        "primitiveType"
+      ],
+      "type": "object"
+    },
+    "PrimitiveType": {
+      "description": "Primitive type of a value.",
+      "enum": [
+        "boolean",
+        "string",
+        "number"
+      ],
+      "type": "string"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "description": "Execution step.",
+      "properties": {
+        "description": {
+          "description": "Human-readable description of the step.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unique identifier of the step.",
+          "type": "string"
+        },
+        "isComposite": {
+          "description": "True if the step is composite, false otherwise.",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Human-readable name of the step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "isComposite"
+      ],
+      "type": "object"
+    }
+  }
+}

@@ -1,0 +1,440 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "BreakpointParameter": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/PrimitiveBreakpointParameter"
+        },
+        {
+          "$ref": "#/definitions/ElementBreakpointParameter"
+        }
+      ],
+      "description": "Parameter required by a breakpoint type."
+    },
+    "BreakpointType": {
+      "additionalProperties": false,
+      "description": "Breakpoint type defined by the language runtime.",
+      "properties": {
+        "description": {
+          "description": "Human-readable description of the breakpoint type.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unique identifier of the breakpoin type.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Human-readable name of the breakpoint type.",
+          "type": "string"
+        },
+        "parameters": {
+          "description": "Parameters needed to evaluate a breakpoint of this type.",
+          "items": {
+            "$ref": "#/definitions/BreakpointParameter"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "parameters"
+      ],
+      "type": "object"
+    },
+    "DomainSpecificBreakpoint": {
+      "additionalProperties": false,
+      "description": "Domain-specific breakpoint.",
+      "properties": {
+        "breakpointTypeId": {
+          "description": "Breakpoint type to create an instance of.",
+          "type": "string"
+        },
+        "entries": {
+          "$ref": "#/definitions/Entries",
+          "description": "Arguments required by the breakpoint type."
+        }
+      },
+      "required": [
+        "entries",
+        "breakpointTypeId"
+      ],
+      "type": "object"
+    },
+    "DomainSpecificBreakpointCreationInformation": {
+      "additionalProperties": false,
+      "description": "Domain-specific breakpoint creation information.",
+      "properties": {
+        "verified": {
+          "description": "True if the breakpoint could be set, false otherwise.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "verified"
+      ],
+      "type": "object"
+    },
+    "ElementBreakpointParameter": {
+      "additionalProperties": false,
+      "description": "Reference breakpoint parameter.",
+      "properties": {
+        "elementType": {
+          "description": "Type of the target model element, as defined in 'ModelElement.types'.",
+          "type": "string"
+        },
+        "isMultivalued": {
+          "description": "True is the parameter is a collection, false otherwise.",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Name of the parameter.",
+          "type": "string"
+        },
+        "type": {
+          "const": "element",
+          "description": "Type of the parameter.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "name",
+        "isMultivalued",
+        "elementType"
+      ],
+      "type": "object"
+    },
+    "Entries": {
+      "additionalProperties": {
+        "description": "Properties with arbitrary key and value."
+      },
+      "description": "Arbitrary entries for model elements or literal values.",
+      "type": "object"
+    },
+    "GetAvailableStepsArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'getAvailableSteps' dpDAP request.",
+      "properties": {
+        "sourceFile": {
+          "description": "Source file targeted by the service call.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceFile"
+      ],
+      "type": "object"
+    },
+    "GetAvailableStepsResponse": {
+      "additionalProperties": false,
+      "description": "Response to the 'getAvailableSteps' dpDAP request.",
+      "properties": {
+        "availableSteps": {
+          "description": "Currently available steps.",
+          "items": {
+            "$ref": "#/definitions/Step"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "availableSteps"
+      ],
+      "type": "object"
+    },
+    "GetBreakpointTypesArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'getBreakpointTypes' dpDAP request.",
+      "properties": {
+        "sourceFile": {
+          "description": "Source file targeted by the service call.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceFile"
+      ],
+      "type": "object"
+    },
+    "GetBreakpointTypesResponse": {
+      "additionalProperties": false,
+      "description": "Response to the 'getBreakpointTypes' dpDAP request.",
+      "properties": {
+        "breakpointTypes": {
+          "description": "Breakpoint types defined by the language runtime.",
+          "items": {
+            "$ref": "#/definitions/BreakpointType"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "breakpointTypes"
+      ],
+      "type": "object"
+    },
+    "GetModelElementReferenceFromSourceArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'getModelElementReferenceFromSource' dpDAP request.",
+      "properties": {
+        "column": {
+          "description": "Column at which to look for an element.",
+          "type": "number"
+        },
+        "line": {
+          "description": "Line at which to look for an element.",
+          "type": "number"
+        },
+        "sourceFile": {
+          "description": "Source file targeted by the service call.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "column",
+        "line",
+        "sourceFile"
+      ],
+      "type": "object"
+    },
+    "GetModelElementReferenceFromSourceResponse": {
+      "additionalProperties": false,
+      "description": "Response to the 'getModelElementReferenceFromSource' dpDAP request.",
+      "properties": {
+        "element": {
+          "$ref": "#/definitions/ModelElementReference",
+          "description": "Element located at the specificed source location."
+        }
+      },
+      "type": "object"
+    },
+    "GetModelElementsReferencesArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'getModelElementsReferences' dpDAP request.",
+      "properties": {
+        "sourceFile": {
+          "description": "Source file targeted by the service call.",
+          "type": "string"
+        },
+        "type": {
+          "description": "Type of the elements to retrieve.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceFile",
+        "type"
+      ],
+      "type": "object"
+    },
+    "GetModelElementsReferencesResponse": {
+      "additionalProperties": false,
+      "description": "Response to the 'getModelElementsReferences' dpDAP request.",
+      "properties": {
+        "elements": {
+          "description": "Model elements with the specified type.",
+          "items": {
+            "$ref": "#/definitions/ModelElementReference"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "elements"
+      ],
+      "type": "object"
+    },
+    "ModelElementReference": {
+      "additionalProperties": false,
+      "description": "Reference to a model element.",
+      "properties": {
+        "id": {
+          "description": "Unique identifier of the element.",
+          "type": "string"
+        },
+        "label": {
+          "description": "Textual representation of the element.",
+          "type": "string"
+        },
+        "types": {
+          "description": "Types of the element. At least one type must be specified.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "types",
+        "label"
+      ],
+      "type": "object"
+    },
+    "PrimitiveBreakpointParameter": {
+      "additionalProperties": false,
+      "description": "Primitive breakpoint parameter.",
+      "properties": {
+        "isMultivalued": {
+          "description": "True is the parameter is a collection, false otherwise.",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Name of the parameter.",
+          "type": "string"
+        },
+        "primitiveType": {
+          "description": "Primitive type of the primitive parameter.",
+          "enum": [
+            "boolean",
+            "number",
+            "string"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "primitive",
+          "description": "Type of the parameter.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "name",
+        "isMultivalued",
+        "primitiveType"
+      ],
+      "type": "object"
+    },
+    "SelectStepArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'selectStep' dpDAP request.",
+      "properties": {
+        "sourceFile": {
+          "description": "Source file targeted by the service call.",
+          "type": "string"
+        },
+        "stepId": {
+          "description": "ID of the step to enable.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceFile",
+        "stepId"
+      ],
+      "type": "object"
+    },
+    "SelectStepResponse": {
+      "additionalProperties": false,
+      "description": "Response to the 'selectStep' dpDAP request.",
+      "type": "object"
+    },
+    "SetDomainSpecificBreakpointsArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'setDomainSpecificBreakpoints' dpDAP request.",
+      "properties": {
+        "breakpoints": {
+          "description": "Domain-specific breakpoints to create.",
+          "items": {
+            "$ref": "#/definitions/DomainSpecificBreakpoint"
+          },
+          "type": "array"
+        },
+        "sourceFile": {
+          "description": "Source file targeted by the service call.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "breakpoints",
+        "sourceFile"
+      ],
+      "type": "object"
+    },
+    "SetDomainSpecificBreakpointsResponse": {
+      "additionalProperties": false,
+      "description": "Response to the 'setDomainSpecificBreakpoints' dpDAP request.",
+      "properties": {
+        "breakpoints": {
+          "description": "Domain-specific breakpoints to create.",
+          "items": {
+            "$ref": "#/definitions/DomainSpecificBreakpointCreationInformation"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "breakpoints"
+      ],
+      "type": "object"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "description": "Execution step listed by the language runtime.",
+      "properties": {
+        "description": {
+          "description": "Human-readable description of the step.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unique identifier of the step.",
+          "type": "string"
+        },
+        "isSelected": {
+          "description": "True if this step is currently selected, false otherwise.",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Human-readable name of the step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "isSelected",
+        "name"
+      ],
+      "type": "object"
+    },
+    "dpLaunchRequestArguments": {
+      "additionalProperties": false,
+      "description": "Arguments for the 'launch' dpDAP request.",
+      "properties": {
+        "__restart": {
+          "description": "Arbitrary data from the previous, restarted session. The data is sent as the `restart` attribute of the `terminated` event. The client should leave the data intact."
+        },
+        "additionalArgs": {
+          "description": "Additional arguments that may be required for specific languages."
+        },
+        "languageRuntimePort": {
+          "description": "Port on which the language runtime associated to the source file is listening.",
+          "type": "number"
+        },
+        "noDebug": {
+          "description": "If true, the launch request should launch the program without enabling debugging.",
+          "type": "boolean"
+        },
+        "pauseOnEnd": {
+          "description": "True if the program should pause after executing the last step, instead of terminating the debug session.",
+          "type": "boolean"
+        },
+        "pauseOnStart": {
+          "description": "True if the program should pause before executing the first step.",
+          "type": "boolean"
+        },
+        "sourceFile": {
+          "description": "Source file for which to launch execution.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceFile",
+        "languageRuntimePort"
+      ],
+      "type": "object"
+    }
+  }
+}
