@@ -159,25 +159,49 @@ export type SelectStepResponse = { };
 */
 export type Step = SelectedLeaf;
 
+/**
+ * Arguments for the 'getModelElementsReferences' dpDAP request.
+*/
 export type GetModelElementsReferencesArguments = Arguments & {
+    /** Type of the elements to retrieve. */
     type: string;
 }
 
+/**
+ * Response to the 'getModelElementsReferences' dpDAP request.
+*/
 export type GetModelElementsReferencesResponse = {
+    /** Model elements with the specified type. */
     elements: ModelElementReference[];
 }
 
+/** Reference to a model element. */
 export type ModelElementReference = {
+    /** Unique identifier of the element. */
     id: string;
+
+    /** Types of the element. At least one type must be specified. */
     types: string[];
+
+    /** Textual representation of the element. */
     label: string;
 }
 
+/**
+ * Arguments for the 'getModelElementReferenceFromSource' dpDAP request.
+*/
 export type GetModelElementReferenceFromSourceArguments = Arguments & {
+    /** Line at which to look for an element. */
     line: number;
+
+    /** Column at which to look for an element. */
     column: number;
 }
 
+/**
+ * Response to the 'getModelElementReferenceFromSource' dpDAP request.
+*/
 export type GetModelElementReferenceFromSourceResponse = {
+    /** Element located at the specificed source location. */
     element?: ModelElementReference;
 }
